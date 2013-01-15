@@ -1,14 +1,92 @@
-<!--
-To change this template, choose Tools | Templates
-and open the template in the editor.
--->
 <!DOCTYPE html>
 <html>
   <head>
-    <title></title>
+    <title>VisiCamConfiguration</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="lib/jquery.imgareaselect-0.9.9/css/imgareaselect-default.css" />
+    <link rel="stylesheet" type="text/css" href="configPage.css" />
+    <script type="text/javascript" src="lib/jquery.imgareaselect-0.9.9/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="lib/jquery.imgareaselect-0.9.9/scripts/jquery.imgareaselect.pack.js"></script>
   </head>
   <body>
-    <div>TODO write content</div>
+    <img style="max-width: 800px;" src="../rawimage" id="capture"/>
+    <fieldset id="settings">
+      <legend>VisiCam Settings:</legend>
+      <p><label for="cameraIndex">CameraIndex:</label><input id="cameraIndex" name="cameraIndex" type="number"/></p>
+      <p><label for="inputWidth">InputWidth:</label><input id="inputWidth" name="inputWidth" type="number"/></p>
+      <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number"/></p>
+      <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
+      <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
+      <p><label for="marker">Marker:</label>
+      <p><select id="marker">
+        <option value="0" selected="selected">top-left</option>
+        <option value="1">top-right</option>
+        <option value="2">bottom-left</option>
+        <option value="3">bottom-right</option>
+      </select></p>
+      <button id="save">Save</button>
+    </fieldset>
+    <script type="text/javascript">
+    var activeMarker = 0;
+    var settings = {};
+    var width = 1680;
+    var height = 1050;
+    function updateSelection(img, selection)
+    {
+      if (settings.markerSearchfields)
+      {
+        settings.markerSearchfields[activeMarker].x = selection.x1/width;
+        settings.markerSearchfields[activeMarker].y = selection.y1/height;
+        settings.markerSearchfields[activeMarker].width = selection.width/width;
+        settings.markerSearchfields[activeMarker].height = selection.height/height;
+      }
+    }
+    function loadSettings(s)
+    {
+      settings = s;
+      $("#cameraIndex").val(settings.cameraIndex);
+      $("#inputWidth").val(settings.inputWidth);
+      $("#inputHeight").val(settings.inputHeight);
+      $("#outputWidth").val(settings.outputWidth);
+      $("#outputHeight").val(settings.outputHeight);
+      selectMarker(0);
+    }
+    function selectMarker(i)
+    {
+      activeMarker = i;
+      $('img#capture').imgAreaSelect({
+            handles: true,
+            onSelectEnd: updateSelection,
+            x1: width*settings.markerSearchfields[i].x,
+            y1: height*settings.markerSearchfields[i].y,
+            x2: width*(settings.markerSearchfields[i].x+settings.markerSearchfields[i].width),
+            y2: height*(settings.markerSearchfields[i].y+settings.markerSearchfields[i].height)
+        });
+    }
+    function saveChanges()
+    {
+      settings.cameraIndex = $("#cameraIndex").val();
+      settings.inputWidth = $("#inputWidth").val();
+      settings.inputHeight = $("#inputHeight").val();
+      settings.outputWidth = $("#outputWidth").val();
+      settings.outputHeight = $("#outputHeight").val();
+      $.post("../settings", settings, function(){alert("Settings saved")});
+    }
+    $(document).ready(function () {
+       
+       $("img#capture").load(function(){
+         width = $("img#capture").width();
+         height = $("img#capture").height();
+         $.get("../settings", null, loadSettings, "json");
+       }).error(function(){
+         $.get("../settings", null, loadSettings, "json");
+         alert("The image could not be loaded. Maybe select another cameraIndex?");
+       });
+       $("#marker").change(function(){
+         selectMarker($("#marker").val());
+       });
+       $("#save").click(saveChanges);
+    });
+    </script>
   </body>
 </html>

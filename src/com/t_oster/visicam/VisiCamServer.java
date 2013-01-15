@@ -4,11 +4,16 @@
  */
 package com.t_oster.visicam;
 
+import com.google.gson.Gson;
 import com.googlecode.javacv.FrameGrabber;
 import gr.ktogias.NanoHTTPD;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -17,13 +22,15 @@ import java.util.Properties;
  */
 public class VisiCamServer extends NanoHTTPD 
 {
-  //private File config = new File("visicam.conf");
+  private File config = new File("visicam.conf");
   private CameraController cc;
   private int cameraIndex = 0;
   private int inputWidth = 1680;
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
+  
+  private Gson gson = new Gson();
   
   private RelativeRectangle[] markerSearchfields = new RelativeRectangle[]{
     new RelativeRectangle(0,0,0.2,0.2),
@@ -43,6 +50,63 @@ public class VisiCamServer extends NanoHTTPD
   {
     	super(port, new File("html"));
       this.cc = cc;
+      if (config.exists())
+      {
+        try
+        {
+          Properties p = new Properties();
+          p.load(new FileInputStream(config));
+          this.loadProperties(p);
+          System.out.println("Successfully loaded "+config.getAbsolutePath());
+        }
+        catch (Exception e)
+        {
+          System.out.println("Error loading "+config.getAbsolutePath());
+          System.out.printf("Default settings will be used.");
+        }
+      }
+  }
+  
+  private Response serveSettings()
+  {
+    Map<String, Object> settings = new LinkedHashMap<String, Object>();
+    settings.put("markerSearchfields", markerSearchfields);
+    settings.put("cameraIndex", cameraIndex);
+    settings.put("inputWidth", inputWidth);
+    settings.put("inputHeight", inputHeight);
+    settings.put("outputWidth", outputWidth);
+    settings.put("outputHeight", outputHeight);
+    return new Response(HTTP_OK, "application/json", gson.toJson(settings));
+  }
+  
+  private void loadProperties(Properties parms)
+  {
+    cameraIndex = Integer.parseInt(parms.getProperty("cameraIndex"));
+    inputWidth = Integer.parseInt(parms.getProperty("inputWidth"));
+    inputHeight = Integer.parseInt(parms.getProperty("inputHeight"));
+    outputWidth = Integer.parseInt(parms.getProperty("outputWidth"));
+    outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
+    for (int i = 0; i < markerSearchfields.length; i++)
+    {
+      markerSearchfields[i].setX(Double.parseDouble(parms.getProperty("markerSearchfields["+i+"][x]")));
+      markerSearchfields[i].setY(Double.parseDouble(parms.getProperty("markerSearchfields["+i+"][y]")));
+      markerSearchfields[i].setWidth(Double.parseDouble(parms.getProperty("markerSearchfields["+i+"][width]")));
+      markerSearchfields[i].setHeight(Double.parseDouble(parms.getProperty("markerSearchfields["+i+"][height]")));
+    }
+  }
+  
+  private Response updateSettings(Properties parms)
+  {
+    try 
+    {
+      parms.store(new FileOutputStream(config), "VisiCam Configuration");
+    } catch (IOException ex) 
+    {
+      System.out.println("Could not save settings to "+config.getAbsolutePath());
+      System.out.println("Settings will be reset after restart");
+    }
+    loadProperties(parms);
+    return new Response(HTTP_OK, "application/json", "true");
   }
   
   private Response serveJpeg(BufferedImage img) throws IOException
@@ -69,11 +133,14 @@ public class VisiCamServer extends NanoHTTPD
         {
           return serveTransformedImage();
         }
+        else if ("/settings".equals(uri))
+        {
+          return serveSettings();
+        }
       }
-      else if ("POST".equals(method) && "/configPage.html".equals(uri))
+      else if ("POST".equals(method) && "/settings".equals(uri))
       {
-        //TODO update config
-        return super.serve("/configPage.html", "get", header, parms, files);
+        return updateSettings(parms);
       }
       return super.serve(uri, method, header, parms, files);
     }

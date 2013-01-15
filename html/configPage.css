@@ -1,0 +1,24 @@
+/* 
+    Document   : configPage.css
+    Created on : 15.01.2013, 21:32:19
+    Author     : Thomas Oster <thomas.oster@rwth-aachen.de>
+    Description:
+        Purpose of the stylesheet follows.
+*/
+
+#capture {
+  width: 70%;
+  float: left;
+}
+
+#settings {
+  float: left;
+}
+
+#settings label {
+  width: 8em;
+  float: left;
+  text-align: left;
+  margin-right: 0.5em;
+  display: block
+}
