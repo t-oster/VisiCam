@@ -1,0 +1,8 @@
+VisiCam itself is licensed under the GNU Lesser Public License (see COPYING.LESSER for details).
+
+However, it contains some 3rd Party files, which are listed below.
+
+3rd Party libraries:
+- jQuery
+- JavaCV
+- GSON
