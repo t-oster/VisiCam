@@ -57,12 +57,12 @@ public class VisiCamServer extends NanoHTTPD
           Properties p = new Properties();
           p.load(new FileInputStream(config));
           this.loadProperties(p);
-          System.out.println("Successfully loaded "+config.getAbsolutePath());
+          VisiCam.log("Successfully loaded "+config.getAbsolutePath());
         }
         catch (Exception e)
         {
-          System.out.println("Error loading "+config.getAbsolutePath());
-          System.out.printf("Default settings will be used.");
+          VisiCam.log("Error loading "+config.getAbsolutePath());
+          VisiCam.log("Default settings will be used.");
         }
       }
   }
@@ -102,8 +102,8 @@ public class VisiCamServer extends NanoHTTPD
       parms.store(new FileOutputStream(config), "VisiCam Configuration");
     } catch (IOException ex) 
     {
-      System.out.println("Could not save settings to "+config.getAbsolutePath());
-      System.out.println("Settings will be reset after restart");
+      VisiCam.log("Could not save settings to "+config.getAbsolutePath());
+      VisiCam.log("Settings will be reset after restart");
     }
     loadProperties(parms);
     return new Response(HTTP_OK, "application/json", "true");
@@ -158,7 +158,10 @@ public class VisiCamServer extends NanoHTTPD
 
   private Response serveTransformedImage() throws FrameGrabber.Exception, IOException 
   {
+    VisiCam.log("Taking Snapshot...");
     BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight);
+    VisiCam.log("Finding markers...");
+    int foundMarkers = 0;
     RelativePoint[] currentMarkerPositions = new RelativePoint[lastMarkerPositions.length];
     for (int i = 0; i < currentMarkerPositions.length; i++)
     {
@@ -167,9 +170,17 @@ public class VisiCamServer extends NanoHTTPD
       {
         currentMarkerPositions[i] = lastMarkerPositions[i];
       }
+      else
+      {
+        foundMarkers ++;
+      }
     }
     lastMarkerPositions = currentMarkerPositions;
-    return serveJpeg(cc.applyHomography(img, lastMarkerPositions, outputWidth, outputHeight));
+    VisiCam.log("Found "+foundMarkers+"/"+lastMarkerPositions.length+" markers");
+    VisiCam.log("Applying transformation...");
+    Response result = serveJpeg(cc.applyHomography(img, lastMarkerPositions, outputWidth, outputHeight));
+    VisiCam.log("done");
+    return result;
   }
   
   

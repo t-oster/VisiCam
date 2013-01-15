@@ -30,7 +30,7 @@ public class BroadcastResponder extends Thread {
       socket.setBroadcast(true);
 
       while (true) {
-        System.out.println(">>>Ready to receive broadcast packets!");
+        VisiCam.log(">>>Ready to receive broadcast packets!");
 
         //Receive a packet
         byte[] recvBuf = new byte[15000];
@@ -38,8 +38,8 @@ public class BroadcastResponder extends Thread {
         socket.receive(packet);
 
         //Packet received
-        System.out.println(">>>Discovery packet received from: " + packet.getAddress().getHostAddress());
-        System.out.println(">>>Packet received; data: " + new String(packet.getData()));
+        VisiCam.log(">>>Discovery packet received from: " + packet.getAddress().getHostAddress());
+        VisiCam.log(">>>Packet received; data: " + new String(packet.getData()));
 
         //See if the packet holds the right command (message)
         String message = new String(packet.getData()).trim();
@@ -50,11 +50,11 @@ public class BroadcastResponder extends Thread {
           DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, packet.getAddress(), packet.getPort());
           socket.send(sendPacket);
 
-          System.out.println(">>>Sent packet to: " + sendPacket.getAddress().getHostAddress());
+          VisiCam.log(">>>Sent packet to: " + sendPacket.getAddress().getHostAddress());
         }
       }
     } catch (IOException ex) {
-      System.out.println("ERROR " + ex.getMessage());
+      VisiCam.log("ERROR " + ex.getMessage());
     }
   }
 }
