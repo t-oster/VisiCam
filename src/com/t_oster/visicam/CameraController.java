@@ -28,11 +28,11 @@ public class CameraController
     return new ByteArrayInputStream(bos.toByteArray());
   }
   
-  public BufferedImage takeSnapshot(int cameraIndex) throws Exception
+  public BufferedImage takeSnapshot(int cameraIndex, int width, int height) throws Exception
   {
     OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
-    grabber.setImageHeight(1050);
-    grabber.setImageWidth(1680);
+    grabber.setImageHeight(height);
+    grabber.setImageWidth(width);
     grabber.start();
     IplImage img = grabber.grab();
     BufferedImage result = img.getBufferedImage();

@@ -4,6 +4,7 @@
  */
 package com.t_oster.visicam;
 
+import com.googlecode.javacv.FrameGrabber;
 import gr.ktogias.NanoHTTPD;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -19,6 +20,8 @@ public class VisiCamServer extends NanoHTTPD
   //private File config = new File("visicam.conf");
   private CameraController cc;
   private int cameraIndex = 0;
+  private int inputWidth = 1680;
+  private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
   
@@ -42,14 +45,14 @@ public class VisiCamServer extends NanoHTTPD
       this.cc = cc;
   }
   
-  private Response serveJpeg(BufferedImage img)
+  private Response serveJpeg(BufferedImage img) throws IOException
   {
     return new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
   }
   
-  protected Response serveRawImage()
+  protected Response serveRawImage() throws IOException, FrameGrabber.Exception
   {
-    return serveJpeg(cc.takeSnapshot(cameraIndex));
+    return serveJpeg(cc.takeSnapshot(cameraIndex, inputWidth, inputHeight));
   }
 
   @Override
