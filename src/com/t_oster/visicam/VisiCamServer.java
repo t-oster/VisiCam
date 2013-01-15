@@ -79,7 +79,13 @@ public class VisiCamServer extends NanoHTTPD
     }
     catch (Exception e)
     {
-      return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, e.getMessage());
+      String text = "Exception: "+e.getMessage();
+      for(StackTraceElement s: e.getStackTrace())
+      {
+        text += s.getClassName()+"."+s.getMethodName()+" in "+s.getFileName()+" line "+s.getLineNumber();
+        text += "\n";
+      }
+      return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, text);
     }
   }
 

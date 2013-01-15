@@ -52,4 +52,10 @@ public class RelativePoint
     }
     return input;
   }
+  
+  @Override
+  public String toString()
+  {
+    return "RelativePoint x="+(100*x)+"% y="+(100*y)+"%";
+  }
 }
