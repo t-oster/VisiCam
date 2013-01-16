@@ -390,6 +390,11 @@ public class NanoHTTPD
 				ByteArrayInputStream bin = new ByteArrayInputStream(fbuf);
 				BufferedReader in = new BufferedReader( new InputStreamReader(bin));
 
+        //BUG?
+        if (method == null)
+        {
+          method = "GET";
+        }
 				// If the method is POST, there may be parameters
 				// in data section, too, read it:
 				if ( method.equalsIgnoreCase( "POST" ))
