@@ -30,27 +30,20 @@ public class BroadcastResponder extends Thread {
       socket.setBroadcast(true);
 
       while (true) {
-        VisiCam.log(">>>Ready to receive broadcast packets!");
+        VisiCam.log("Responding to discovery packets on UDP:"+port);
 
         //Receive a packet
         byte[] recvBuf = new byte[15000];
         DatagramPacket packet = new DatagramPacket(recvBuf, recvBuf.length);
         socket.receive(packet);
-
-        //Packet received
-        VisiCam.log(">>>Discovery packet received from: " + packet.getAddress().getHostAddress());
-        VisiCam.log(">>>Packet received; data: " + new String(packet.getData()));
-
         //See if the packet holds the right command (message)
         String message = new String(packet.getData()).trim();
         if (message.equals("VisiCamDiscover")) {
           byte[] sendData = responseUri.getBytes();
-
           //Send a response
           DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, packet.getAddress(), packet.getPort());
           socket.send(sendPacket);
-
-          VisiCam.log(">>>Sent packet to: " + sendPacket.getAddress().getHostAddress());
+          VisiCam.log("Discovery response sent to: " + sendPacket.getAddress().getHostAddress());
         }
       }
     } catch (IOException ex) {
