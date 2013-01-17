@@ -39,12 +39,7 @@ public class VisiCamServer extends NanoHTTPD
     new RelativeRectangle(0.8,0.8,0.2,0.2)
   };
   
-  private RelativePoint[] lastMarkerPositions = new RelativePoint[]{
-    new RelativePoint(0.1,0.1),
-    new RelativePoint(0.9,0.1),
-    new RelativePoint(0.1,0.9),
-    new RelativePoint(0.9,0.9)
-  };
+  private RelativePoint[] lastMarkerPositions = null;
   
   public VisiCamServer(int port, CameraController cc) throws IOException
   {
@@ -65,6 +60,12 @@ public class VisiCamServer extends NanoHTTPD
           VisiCam.log("Default settings will be used.");
         }
       }
+      lastMarkerPositions = new RelativePoint[]{
+        new RelativePoint(markerSearchfields[0].x + markerSearchfields[0].getWidth()/2, markerSearchfields[0].y + markerSearchfields[0].getHeight()/2),
+        new RelativePoint(markerSearchfields[1].x + markerSearchfields[1].getWidth()/2, markerSearchfields[1].y + markerSearchfields[1].getHeight()/2),
+        new RelativePoint(markerSearchfields[2].x + markerSearchfields[2].getWidth()/2, markerSearchfields[2].y + markerSearchfields[2].getHeight()/2),
+        new RelativePoint(markerSearchfields[3].x + markerSearchfields[3].getWidth()/2, markerSearchfields[3].y + markerSearchfields[3].getHeight()/2)
+      };
   }
   
   private Response serveSettings()
