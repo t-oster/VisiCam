@@ -1,10 +1,26 @@
 /* 
-    Document   : configPage.css
+    Document   : style.css
     Created on : 15.01.2013, 21:32:19
     Author     : Thomas Oster <thomas.oster@rwth-aachen.de>
     Description:
         Purpose of the stylesheet follows.
 */
+
+body {
+  border: 1px solid black;
+  border-radius: 5px;
+  box-shadow: 3px 1px 5px 0px white;
+  background: silver;
+  position:relative;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+
+.logo {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
 
 #capture {
   width: 70%;
