@@ -87,29 +87,29 @@ public class NanoHTTPD
 	 */
 	public Response serve( String uri, String method, Properties header, Properties parms, Properties files )
 	{
-		myOut.println( method + " '" + uri + "' " );
+		//myOut.println( method + " '" + uri + "' " );
 
-		Enumeration e = header.propertyNames();
-		while ( e.hasMoreElements())
-		{
-			String value = (String)e.nextElement();
-			myOut.println( "  HDR: '" + value + "' = '" +
-								header.getProperty( value ) + "'" );
-		}
-		e = parms.propertyNames();
-		while ( e.hasMoreElements())
-		{
-			String value = (String)e.nextElement();
-			myOut.println( "  PRM: '" + value + "' = '" +
-								parms.getProperty( value ) + "'" );
-		}
-		e = files.propertyNames();
-		while ( e.hasMoreElements())
-		{
-			String value = (String)e.nextElement();
-			myOut.println( "  UPLOADED: '" + value + "' = '" +
-								files.getProperty( value ) + "'" );
-		}
+//		Enumeration e = header.propertyNames();
+//		while ( e.hasMoreElements())
+//		{
+//			String value = (String)e.nextElement();
+//			myOut.println( "  HDR: '" + value + "' = '" +
+//								header.getProperty( value ) + "'" );
+//		}
+//		e = parms.propertyNames();
+//		while ( e.hasMoreElements())
+//		{
+//			String value = (String)e.nextElement();
+//			myOut.println( "  PRM: '" + value + "' = '" +
+//								parms.getProperty( value ) + "'" );
+//		}
+//		e = files.propertyNames();
+//		while ( e.hasMoreElements())
+//		{
+//			String value = (String)e.nextElement();
+//			myOut.println( "  UPLOADED: '" + value + "' = '" +
+//								files.getProperty( value ) + "'" );
+//		}
 
 		return serveFile( uri, header, myRootDir, true );
 	}
