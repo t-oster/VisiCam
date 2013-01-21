@@ -125,11 +125,11 @@ public class VisiCamServer extends NanoHTTPD
     {
       if ("GET".equals(method))
       {
-        if ("/rawimage".equals(uri))
+        if (uri.startsWith("/rawimage"))
         {
           return serveRawImage();
         }
-        else if("/image".equals(uri))
+        else if(uri.startsWith("/image"))
         {
           return serveTransformedImage();
         }

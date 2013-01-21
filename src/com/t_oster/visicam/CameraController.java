@@ -12,13 +12,17 @@ import com.googlecode.javacv.cpp.opencv_core.CvPoint3D32f;
 import com.googlecode.javacv.cpp.opencv_core.CvSeq;
 import com.googlecode.javacv.cpp.opencv_core.IplImage;
 import static com.googlecode.javacv.cpp.opencv_imgproc.*;
+import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 /**
@@ -37,14 +41,34 @@ public class CameraController
   
   public BufferedImage takeSnapshot(int cameraIndex, int width, int height) throws Exception
   {
-    OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
-    grabber.setImageHeight(height);
-    grabber.setImageWidth(width);
-    grabber.start();
-    IplImage img = grabber.grab();
-    BufferedImage result = img.getBufferedImage();
-    grabber.stop();
-    return result;
+    try
+    {
+      OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
+      grabber.setImageHeight(height);
+      grabber.setImageWidth(width);
+      grabber.start();
+      IplImage img = grabber.grab();
+      BufferedImage result = img.getBufferedImage();
+      grabber.stop();
+      return result;
+    }
+    catch (Exception e)
+    {
+      try
+      {
+        String txt = "Error: "+e.getMessage();
+        BufferedImage result = ImageIO.read(new File("html/dummy.jpg"));
+        Graphics2D g = result.createGraphics();
+        g.clearRect(100, 100, result.getWidth()-200, 2*g.getFontMetrics().getHeight());
+        g.drawString(txt, 100, 100);
+        return result;
+      }
+      catch (IOException ex)
+      {
+        Logger.getLogger(CameraController.class.getName()).log(Level.SEVERE, null, ex);
+        return null;
+      }
+    }
   }
   
   public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)

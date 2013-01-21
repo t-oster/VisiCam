@@ -4,15 +4,47 @@
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <title>Welcome at VisiCam</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script type="text/javascript" src="lib/jquery.imgareaselect-0.9.9/scripts/jquery.min.js"></script>  
   </head>
   <body>
     <h1>VisiCam Version 0.1</h1>
     <p>Serving your Lasercutter Camera for all <a href="http://visicut.org" target="_blank">VisiCut</a> instances in your Network</p>
     <img class="logo" src="icon.png"/>
-    <ul>
-      <li><a href="rawimage">Get image from your webcam</a></li>
-      <li><a href="image">Get corrected image from your webcam</a></li>
-      <li><a href="configPage.html">Show Configuration</a></li>
-    </ul>
+    
+    <fieldset id="input">
+      <legend>Input Image:</legend>
+      <img id="rawImage" src="rawimage"/>
+      <div class="clear"></div>
+      <button id="refreshInput">refresh</button>
+    </fieldset>
+    <fieldset id="preview">
+      <legend>Corrected Image:</legend>
+      <img id="image" src="image"/>
+      <div class="clear"></div>
+      <button id="refreshPreview">refresh</button>
+    </fieldset>
+    <div class="clear"></div>
+    <a href="configPage.html">Show Configuration</a>
+    <script type="text/javascript">
+      var someNumber =  0;
+      $("#rawImage").load(function(){
+        $("#refreshInput").show();
+      });
+      $("#refreshInput").click(function(){
+        someNumber += 1;
+        $("#refreshInput").hide();
+        $("#rawImage").attr("src", "rawimage"+someNumber);
+        
+      });
+      $("#image").load(function(){
+        $("#refreshPreview").show();
+      });
+      $("#refreshPreview").click(function(){
+        someNumber += 1;
+        $("#refreshPreview").hide();
+        $("#image").attr("src", "image"+someNumber);
+        
+      });
+    </script>
   </body>
 </html>

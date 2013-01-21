@@ -16,6 +16,23 @@ body {
   padding-bottom: 10px;
 }
 
+#input {
+  float: left;
+}
+
+#preview {
+  float: right;
+}
+
+.clear {
+  clear: both;
+}
+
+#input img, #preview img {
+  width: 500px;
+}
+
+
 .logo {
   position: absolute;
   top: 10px;
