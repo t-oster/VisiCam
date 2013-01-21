@@ -17,6 +17,9 @@
       <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number"/></p>
       <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
       <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
+      <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
+      <p class="custom"><label for="captureCommand">CaptureCommand:</label><input id="captureCommand" name="captureCommand" type="text"/></p>
+      <p class="custom"><label for="captureResult">CaptureResult:</label><input id="captureResult" name="captureResult" type="text"/></p>
       <p><label for="marker">Marker:</label>
       <p><select id="marker">
         <option value="0" selected="selected">top-left</option>
@@ -49,7 +52,29 @@
       $("#inputHeight").val(settings.inputHeight);
       $("#outputWidth").val(settings.outputWidth);
       $("#outputHeight").val(settings.outputHeight);
+      if (settings.captureCommand != "")
+      {
+        $("#customCapture").attr("checked", "checked");
+      }
+      else
+      {
+        $("#customCapture").removeAttr("checked");
+      }
+      $("#captureCommand").val(settings.captureCommand);
+      $("#captureResult").val(settings.captureResult);
+      updateCustomCapture();
       selectMarker(0);
+    }
+    function updateCustomCapture()
+    {
+      if ($("#customCapture").is(":checked"))
+      {
+        $(".custom").slideDown(500);
+      }
+      else
+      {
+        $(".custom").slideUp(500);
+      }
     }
     function selectMarker(i)
     {
@@ -70,6 +95,8 @@
       settings.inputHeight = $("#inputHeight").val();
       settings.outputWidth = $("#outputWidth").val();
       settings.outputHeight = $("#outputHeight").val();
+      settings.captureCommand = $("#customCapture").is(":checked") ? $("#captureCommand").val() : "";
+      settings.captureResult = $("#customCapture").is(":checked") ? $("#captureResult").val() : "";
       $.post("../settings", settings, function(){alert("Settings saved")});
     }
     $(document).ready(function () {
@@ -86,6 +113,7 @@
          selectMarker($("#marker").val());
        });
        $("#save").click(saveChanges);
+       $("#customCapture").change(updateCustomCapture);
     });
     </script>
   </body>
