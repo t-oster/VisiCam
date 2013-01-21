@@ -16,6 +16,16 @@ with the javacv.jar from the lib/javacv-pi folder.
 It works on ArchLinux (opencv can be installed through pacman). But
 is VERY SLOW. Any help is appreciated.
 
+Running on Windows
+==================
+- Download and install 
+    Microsoft Visual C++ 2010 Redistributable Package (x86) http://www.microsoft.com/download/en/details.aspx?id=5555
+  or
+    Microsoft Visual C++ 2010 Redistributable Package (x64) http://www.microsoft.com/download/en/details.aspx?id=14632
+
+- Download OpenCV from http://sourceforge.net/projects/opencvlibrary/files/opencv-win/2.4.3/OpenCV-2.4.3.exe/download
+- Add either the build/vc10/bin folder to PATH or copy all the dlls to the VisiCam folder
+
 Usage
 =====
 1. Place 4 Markers (Circles within circles) at the corners of you laser-bed
