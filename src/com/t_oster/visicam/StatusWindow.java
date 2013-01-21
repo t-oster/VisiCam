@@ -1,6 +1,12 @@
 package com.t_oster.visicam;
 
+import java.awt.Desktop;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -24,7 +30,8 @@ public class StatusWindow extends javax.swing.JFrame {
    */
   @SuppressWarnings("unchecked")
   // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-  private void initComponents() {
+  private void initComponents()
+  {
 
     jButton1 = new javax.swing.JButton();
     jLabel1 = new javax.swing.JLabel();
@@ -33,18 +40,23 @@ public class StatusWindow extends javax.swing.JFrame {
     jScrollPane1 = new javax.swing.JScrollPane();
     logList = new javax.swing.JList();
     clearButton = new javax.swing.JButton();
+    btOpen = new javax.swing.JButton();
 
     setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
     setTitle("VisiCam");
-    addWindowListener(new java.awt.event.WindowAdapter() {
-      public void windowClosing(java.awt.event.WindowEvent evt) {
+    addWindowListener(new java.awt.event.WindowAdapter()
+    {
+      public void windowClosing(java.awt.event.WindowEvent evt)
+      {
         formWindowClosing(evt);
       }
     });
 
     jButton1.setText("Quit");
-    jButton1.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
+    jButton1.addActionListener(new java.awt.event.ActionListener()
+    {
+      public void actionPerformed(java.awt.event.ActionEvent evt)
+      {
         jButton1ActionPerformed(evt);
       }
     });
@@ -59,9 +71,20 @@ public class StatusWindow extends javax.swing.JFrame {
     jScrollPane1.setViewportView(logList);
 
     clearButton.setText("Clear");
-    clearButton.addActionListener(new java.awt.event.ActionListener() {
-      public void actionPerformed(java.awt.event.ActionEvent evt) {
+    clearButton.addActionListener(new java.awt.event.ActionListener()
+    {
+      public void actionPerformed(java.awt.event.ActionEvent evt)
+      {
         clearButtonActionPerformed(evt);
+      }
+    });
+
+    btOpen.setText("Open");
+    btOpen.addActionListener(new java.awt.event.ActionListener()
+    {
+      public void actionPerformed(java.awt.event.ActionEvent evt)
+      {
+        btOpenActionPerformed(evt);
       }
     });
 
@@ -80,10 +103,12 @@ public class StatusWindow extends javax.swing.JFrame {
               .addGroup(layout.createSequentialGroup()
                 .addComponent(urlTextField)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(btOpen)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jButton1))
               .addGroup(layout.createSequentialGroup()
                 .addComponent(jLabel1)
-                .addGap(0, 43, Short.MAX_VALUE))
+                .addGap(0, 53, Short.MAX_VALUE))
               .addComponent(jScrollPane1))
             .addContainerGap())))
       .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
@@ -99,7 +124,8 @@ public class StatusWindow extends javax.swing.JFrame {
         .addGap(15, 15, 15)
         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(jButton1)
-          .addComponent(urlTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+          .addComponent(urlTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(btOpen))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(jLabel2)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -124,6 +150,18 @@ public class StatusWindow extends javax.swing.JFrame {
     VisiCam.quit();
   }//GEN-LAST:event_formWindowClosing
 
+  private void btOpenActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btOpenActionPerformed
+  {//GEN-HEADEREND:event_btOpenActionPerformed
+    try
+    {
+      Desktop.getDesktop().browse(new URI(this.urlTextField.getText()));
+    }
+    catch (Exception ex)
+    {
+      JOptionPane.showMessageDialog(rootPane, ex, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+  }//GEN-LAST:event_btOpenActionPerformed
+
   void addLog(String line) {
     logListModel.addElement(line);
     if (logListModel.size() > 50)
@@ -133,6 +171,7 @@ public class StatusWindow extends javax.swing.JFrame {
   }
   
   // Variables declaration - do not modify//GEN-BEGIN:variables
+  private javax.swing.JButton btOpen;
   private javax.swing.JButton clearButton;
   private javax.swing.JButton jButton1;
   private javax.swing.JLabel jLabel1;

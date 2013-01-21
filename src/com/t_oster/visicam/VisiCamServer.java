@@ -24,6 +24,8 @@ public class VisiCamServer extends NanoHTTPD
 {
   private File config = new File("visicam.conf");
   private CameraController cc;
+  private String captureCommand = "";
+  private String captureResult = "";
   private int cameraIndex = 0;
   private int inputWidth = 1680;
   private int inputHeight = 1050;
@@ -77,6 +79,8 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("inputHeight", inputHeight);
     settings.put("outputWidth", outputWidth);
     settings.put("outputHeight", outputHeight);
+    settings.put("captureCommand", captureCommand);
+    settings.put("captureResult", captureResult);
     return new Response(HTTP_OK, "application/json", gson.toJson(settings));
   }
   
@@ -87,6 +91,8 @@ public class VisiCamServer extends NanoHTTPD
     inputHeight = Integer.parseInt(parms.getProperty("inputHeight"));
     outputWidth = Integer.parseInt(parms.getProperty("outputWidth"));
     outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
+    captureCommand = parms.getProperty("captureCommand");
+    captureResult = parms.getProperty("captureResult");
     for (int i = 0; i < markerSearchfields.length; i++)
     {
       markerSearchfields[i].setX(Double.parseDouble(parms.getProperty("markerSearchfields["+i+"][x]")));
@@ -115,9 +121,9 @@ public class VisiCamServer extends NanoHTTPD
     return new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
   }
   
-  protected Response serveRawImage() throws IOException, FrameGrabber.Exception
+  protected Response serveRawImage() throws IOException, FrameGrabber.Exception, InterruptedException
   {
-    return serveJpeg(cc.takeSnapshot(cameraIndex, inputWidth, inputHeight));
+    return serveJpeg(cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult));
   }
 
   @Override
@@ -126,11 +132,11 @@ public class VisiCamServer extends NanoHTTPD
     {
       if ("GET".equals(method))
       {
-        if ("/rawimage".equals(uri))
+        if (uri.startsWith("/rawimage"))
         {
           return serveRawImage();
         }
-        else if("/image".equals(uri))
+        else if(uri.startsWith("/image"))
         {
           return serveTransformedImage();
         }
@@ -157,10 +163,10 @@ public class VisiCamServer extends NanoHTTPD
     }
   }
 
-  private Response serveTransformedImage() throws FrameGrabber.Exception, IOException 
+  private Response serveTransformedImage() throws FrameGrabber.Exception, IOException, InterruptedException 
   {
     VisiCam.log("Taking Snapshot...");
-    BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight);
+    BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
     VisiCam.log("Finding markers...");
     int foundMarkers = 0;
     RelativePoint[] currentMarkerPositions = new RelativePoint[lastMarkerPositions.length];
