@@ -1,5 +1,6 @@
 package com.t_oster.visicam;
 
+import com.github.sarxos.webcam.Webcam;
 import com.googlecode.javacv.FrameGrabber.Exception;
 import com.googlecode.javacv.OpenCVFrameGrabber;
 import static com.googlecode.javacv.cpp.opencv_calib3d.*;
@@ -12,6 +13,7 @@ import com.googlecode.javacv.cpp.opencv_core.CvPoint3D32f;
 import com.googlecode.javacv.cpp.opencv_core.CvSeq;
 import com.googlecode.javacv.cpp.opencv_core.IplImage;
 import static com.googlecode.javacv.cpp.opencv_imgproc.*;
+import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -47,13 +49,9 @@ public class CameraController
     {
       if (command == null || "".equals(command))
       {
-        OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
-        grabber.setImageHeight(height);
-        grabber.setImageWidth(width);
-        grabber.start();
-        IplImage img = grabber.grab();
-        result = img.getBufferedImage();
-        grabber.stop();
+        Webcam cam = Webcam.getWebcams().get(cameraIndex);
+        cam.setViewSize(new Dimension(width, height));
+        result = cam.getImage();
       }
       else
       {
