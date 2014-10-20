@@ -26,6 +26,12 @@ Running on Windows
 - Download OpenCV from http://sourceforge.net/projects/opencvlibrary/files/opencv-win/2.4.3/OpenCV-2.4.3.exe/download
 - Add either the build/vc10/bin folder to PATH or copy all the dlls to the VisiCam folder
 
+Running on Ubuntu
+=================
+
+sudo apt-get install libopencv2.4-java # TODO add java
+TODO
+
 Usage
 =====
 1. Place 4 Markers (Circles within circles) at the corners of you laser-bed

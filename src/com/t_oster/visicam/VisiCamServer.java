@@ -165,29 +165,38 @@ public class VisiCamServer extends NanoHTTPD
 
   private Response serveTransformedImage() throws FrameGrabber.Exception, IOException, InterruptedException 
   {
-    VisiCam.log("Taking Snapshot...");
-    BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
-    VisiCam.log("Finding markers...");
-    int foundMarkers = 0;
-    RelativePoint[] currentMarkerPositions = new RelativePoint[lastMarkerPositions.length];
-    for (int i = 0; i < currentMarkerPositions.length; i++)
-    {
-      currentMarkerPositions[i] = cc.findMarker(img, markerSearchfields[i]);
-      if (currentMarkerPositions[i] == null)
+   for (int retries=0; retries < 3; retries++) {
+      VisiCam.log("Taking Snapshot...");
+      BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
+      VisiCam.log("Finding markers...");
+      int foundMarkers = 0;
+      RelativePoint[] currentMarkerPositions = new RelativePoint[lastMarkerPositions.length];
+      for (int i = 0; i < currentMarkerPositions.length; i++)
       {
-        currentMarkerPositions[i] = lastMarkerPositions[i];
+        currentMarkerPositions[i] = cc.findMarker(img, markerSearchfields[i]);
+        VisiCam.log("Marker " + i + ":"  + currentMarkerPositions[i] + " (in rectangle: " + markerSearchfields[i] +  ")");
+        if (currentMarkerPositions[i] == null)
+        {
+          currentMarkerPositions[i] = lastMarkerPositions[i];
+        }
+        else
+        {
+         foundMarkers ++;
+        }
       }
-      else
-      {
-        foundMarkers ++;
+      lastMarkerPositions = currentMarkerPositions;
+      VisiCam.log("Found "+foundMarkers+"/"+lastMarkerPositions.length+" markers");
+      if (foundMarkers < 4) {
+        VisiCam.log("Not enough markers found! Retrying.");
+        continue;
       }
+      VisiCam.log("Applying transformation...");
+      Response result = serveJpeg(cc.applyHomography(img, lastMarkerPositions, outputWidth, outputHeight));
+      VisiCam.log("done");
+      return result;
     }
-    lastMarkerPositions = currentMarkerPositions;
-    VisiCam.log("Found "+foundMarkers+"/"+lastMarkerPositions.length+" markers");
-    VisiCam.log("Applying transformation...");
-    Response result = serveJpeg(cc.applyHomography(img, lastMarkerPositions, outputWidth, outputHeight));
-    VisiCam.log("done");
-    return result;
+    VisiCam.log("Not enough markers found! Giving up.");
+    return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, "cannot find markers");
   }
   
   

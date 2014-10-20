@@ -1,5 +1,5 @@
 #!/bin/sh
 
 # Start VisiCam
-cd ~/VisiCam/
-java -jar dist/VisiCam.jar &
+cd "$(dirname $0)"
+java -jar dist/VisiCam.jar 
