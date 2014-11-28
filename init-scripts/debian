@@ -17,10 +17,11 @@ DESC="camera for visicut"
 NAME=visicam
 # Edit according to your installation
 VISICAM_ROOT=/opt/VisiCam/
+PORT=8080
 VISICAM_JAR=dist/VisiCam.jar
 #
 DAEMON=/usr/bin/java
-DAEMON_ARGS="-jar $VISICAM_JAR --nogui"
+DAEMON_ARGS="-jar $VISICAM_JAR --nogui --port $PORT"
 LOGFILE=/var/log/visicam.log
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
