@@ -11,7 +11,6 @@ import com.googlecode.javacv.cpp.opencv_core.CvPoint2D32f;
 import com.googlecode.javacv.cpp.opencv_core.CvPoint3D32f;
 import com.googlecode.javacv.cpp.opencv_core.CvSeq;
 import com.googlecode.javacv.cpp.opencv_core.IplImage;
-import java.awt.Color;
 import static com.googlecode.javacv.cpp.opencv_imgproc.*;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -22,9 +21,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 /**
@@ -44,35 +40,35 @@ public class CameraController
   public BufferedImage takeSnapshot(int cameraIndex, int width, int height, String command, String path) throws Exception, IOException, InterruptedException
   {
     BufferedImage result;
-  if (command == null || "".equals(command))
-  {
-    OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
-    grabber.setImageHeight(height);
-    grabber.setImageWidth(width);
-    grabber.start();
-    IplImage img = grabber.grab();
-    result = img.getBufferedImage();
-    grabber.stop();
-  }
-  else
-  {
-    Runtime r = Runtime.getRuntime();
-    command = command.replace("%i", ""+cameraIndex).replace("%w", ""+width).replace("%h", ""+height).replace("%f", path);
-    Process pr = r.exec(command);
-    InputStream os = pr.getErrorStream();
-    int b;
-    String errors = "";
-    while  ((b = os.read()) != -1)
-    {
-      errors += ""+(char)b;
+    if (command == null || "".equals(command))
+      {
+        OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
+        grabber.setImageHeight(height);
+        grabber.setImageWidth(width);
+        grabber.start();
+        IplImage img = grabber.grab();
+        result = img.getBufferedImage();
+        grabber.stop();
+      }
+      else
+      {
+        Runtime r = Runtime.getRuntime();
+        command = command.replace("%i", ""+cameraIndex).replace("%w", ""+width).replace("%h", ""+height).replace("%f", path);
+        Process pr = r.exec(command);
+        InputStream os = pr.getErrorStream();
+        int b;
+        String errors = "";
+        while  ((b = os.read()) != -1)
+        {
+          errors += ""+(char)b;
+        }
+        pr.waitFor();
+        if (pr.exitValue() != 0 && !"".equals(errors))
+        {
+          throw new Exception(errors);
+        }
+        result = ImageIO.read(new File(path));
     }
-    pr.waitFor();
-    if (pr.exitValue() != 0 && !"".equals(errors))
-    {
-      throw new Exception(errors);
-    }
-    result = ImageIO.read(new File(path));
-  }
   return result;
   }
 

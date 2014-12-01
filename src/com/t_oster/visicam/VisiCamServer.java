@@ -10,7 +10,6 @@ import gr.ktogias.NanoHTTPD;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Stroke;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -119,7 +118,6 @@ public class VisiCamServer extends NanoHTTPD
           parms.setProperty("captureCommand", captureCommand);
           parms.setProperty("captureResult", captureResult);
       }
-      VisiCam.log(parms.getProperty("lockInsecureSettings"));
       parms.store(new FileOutputStream(config), "VisiCam Configuration");
     } catch (IOException ex) 
     {
