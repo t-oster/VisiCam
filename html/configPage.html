@@ -17,6 +17,7 @@
       <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number"/></p>
       <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
       <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
+      <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
       <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
       <p class="custom"><label for="captureCommand">CaptureCommand:</label><input id="captureCommand" name="captureCommand" type="text"/></p>
       <p class="custom"><label for="captureResult">CaptureResult:</label><input id="captureResult" name="captureResult" type="text"/></p>
@@ -52,6 +53,13 @@
       $("#inputHeight").val(settings.inputHeight);
       $("#outputWidth").val(settings.outputWidth);
       $("#outputHeight").val(settings.outputHeight);
+      $("#lockInsecureSettings").attr("checked",settings.lockInsecureSettings);
+      if (settings.lockInsecureSettings) {
+	      $("#lockInsecureSettings").attr("readonly",true);
+	      $("#customCapture").attr("readonly",true);
+	      $("#captureCommand").attr("readonly",true);
+	      $("#captureResult").attr("readonly",true);
+      }
       if (settings.captureCommand != "")
       {
         $("#customCapture").attr("checked", "checked");
@@ -97,6 +105,7 @@
       settings.outputHeight = $("#outputHeight").val();
       settings.captureCommand = $("#customCapture").is(":checked") ? $("#captureCommand").val() : "";
       settings.captureResult = $("#customCapture").is(":checked") ? $("#captureResult").val() : "";
+      settings.lockInsecureSettings = $("#lockInsecureSettings").is(":checked");
       $.post("../settings", settings, function(){alert("Settings saved")});
     }
     $(document).ready(function () {

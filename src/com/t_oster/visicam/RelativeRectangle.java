@@ -43,6 +43,12 @@ public class RelativeRectangle extends RelativePoint
     this.height = check(height);
   }
   
+  @Override
+  public String toString()
+  {
+    return "RelativeRect x="+(100*x)+"% y="+(100*y)+"%  w="+(100*width)+"% h="+(100*height)+"%";
+  }
+  
   public Rectangle toAbsoluteRectangle(int w, int h)
   {
     return new Rectangle((int) (x*w), (int) (y*h), (int) (w*width), (int) (h*height));

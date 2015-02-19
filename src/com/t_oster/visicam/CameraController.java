@@ -21,9 +21,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 /**
@@ -43,9 +40,7 @@ public class CameraController
   public BufferedImage takeSnapshot(int cameraIndex, int width, int height, String command, String path) throws Exception, IOException, InterruptedException
   {
     BufferedImage result;
-    try
-    {
-      if (command == null || "".equals(command))
+    if (command == null || "".equals(command))
       {
         OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
         grabber.setImageHeight(height);
@@ -73,30 +68,24 @@ public class CameraController
           throw new Exception(errors);
         }
         result = ImageIO.read(new File(path));
-      }
-      return result;
     }
-    catch (Exception e)
-    {
-      try
-      {
-        String txt = "Error: "+e.getMessage();
-        VisiCam.error(txt);
-        result = ImageIO.read(new File("html/dummy.jpg"));
+  return result;
+  }
+
+  public BufferedImage getDummyImage(String filename, String txt) throws IOException {
+	BufferedImage result = ImageIO.read(new File(filename));
         Graphics2D g = result.createGraphics();
         g.setFont(g.getFont().deriveFont(72));
         double w = g.getFontMetrics().stringWidth(txt);
-        g.scale((result.getWidth()-200)/w, (result.getWidth()-200)/w);
-        g.clearRect(100, 100, result.getWidth()-200, 2*g.getFontMetrics().getHeight());
-        g.drawString(txt, 100, 100);
-        return result;
-      }
-      catch (IOException ex)
-      {
-        Logger.getLogger(CameraController.class.getName()).log(Level.SEVERE, null, ex);
-        return null;
-      }
-    }
+        int textHeight=2*g.getFontMetrics().getHeight();
+        //g.scale((result.getWidth()-200)/w, (result.getWidth()-200)/w);
+        g.clearRect(100, 100, result.getWidth()-200, textHeight);
+        g.drawString(txt, 100, 100+textHeight);
+        float s = (float) ((result.getWidth()-200)/w);
+        g.scale(s,s);
+        g.clearRect((int) (100/s), (int) (100/s), result.getWidth()-200, textHeight);
+        g.drawString(txt, 100/s, 100/s+textHeight/2);
+	return result;
   }
   
   public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)
@@ -126,6 +115,18 @@ public class CameraController
       return result;
     }
     return null;
+  }
+  
+  // find all markers in searchfields, returns an array with RelativePoint entries (or null entry if marker not found)
+  public RelativePoint[] findMarkers(BufferedImage img, RelativeRectangle[] markerSearchfields)
+  {
+      RelativePoint[] currentMarkerPositions = new RelativePoint[markerSearchfields.length];
+      for (int i = 0; i < markerSearchfields.length; i++)
+      {
+        currentMarkerPositions[i] = findMarker(img, markerSearchfields[i]);
+        VisiCam.log("Marker " + i + ":"  + currentMarkerPositions[i] + " (in rectangle: " + markerSearchfields[i] +  ")");
+      }
+      return currentMarkerPositions;
   }
   
   public BufferedImage applyHomography(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight)

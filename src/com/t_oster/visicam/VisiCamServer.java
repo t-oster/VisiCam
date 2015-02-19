@@ -7,6 +7,9 @@ package com.t_oster.visicam;
 import com.google.gson.Gson;
 import com.googlecode.javacv.FrameGrabber;
 import gr.ktogias.NanoHTTPD;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,6 +34,7 @@ public class VisiCamServer extends NanoHTTPD
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
+  private boolean lockInsecureSettings = false;
   
   private Gson gson = new Gson();
   
@@ -45,7 +49,7 @@ public class VisiCamServer extends NanoHTTPD
   
   public VisiCamServer(int port, CameraController cc) throws IOException
   {
-    	super(port, new File("html"));
+      super(port, new File("html"));
       this.cc = cc;
       if (config.exists())
       {
@@ -81,6 +85,7 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("outputHeight", outputHeight);
     settings.put("captureCommand", captureCommand);
     settings.put("captureResult", captureResult);
+    settings.put("lockInsecureSettings", lockInsecureSettings);
     return new Response(HTTP_OK, "application/json", gson.toJson(settings));
   }
   
@@ -91,6 +96,7 @@ public class VisiCamServer extends NanoHTTPD
     inputHeight = Integer.parseInt(parms.getProperty("inputHeight"));
     outputWidth = Integer.parseInt(parms.getProperty("outputWidth"));
     outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
+    lockInsecureSettings = Boolean.parseBoolean(parms.getProperty("lockInsecureSettings"));
     captureCommand = parms.getProperty("captureCommand");
     captureResult = parms.getProperty("captureResult");
     for (int i = 0; i < markerSearchfields.length; i++)
@@ -106,6 +112,12 @@ public class VisiCamServer extends NanoHTTPD
   {
     try 
     {
+      if (lockInsecureSettings) {
+          // if set, do not allow changing any settings that could cause command execution or data leakage
+          parms.setProperty("lockInsecureSettings", Boolean.toString(lockInsecureSettings));
+          parms.setProperty("captureCommand", captureCommand);
+          parms.setProperty("captureResult", captureResult);
+      }
       parms.store(new FileOutputStream(config), "VisiCam Configuration");
     } catch (IOException ex) 
     {
@@ -121,9 +133,40 @@ public class VisiCamServer extends NanoHTTPD
     return new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
   }
   
+  // serve the raw input image with green X at the marker locations and red rectangles in the searchfields
   protected Response serveRawImage() throws IOException, FrameGrabber.Exception, InterruptedException
   {
-    return serveJpeg(cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult));
+      try
+      {
+        BufferedImage img=cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
+        RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
+        Graphics2D g=img.createGraphics();
+          for (int i = 0; i < currentMarkerPositions.length; i++)
+          {
+            int fieldX = (int) (markerSearchfields[i].getX()*img.getWidth());
+            int fieldW = (int) (markerSearchfields[i].getWidth()*img.getWidth());
+            int fieldY = (int) (markerSearchfields[i].getY()*img.getHeight());
+            int fieldH = (int) (markerSearchfields[i].getHeight()*img.getHeight());
+            g.setStroke(new BasicStroke(4));
+            g.setColor(Color.RED);
+            g.drawRect(fieldX, fieldY, fieldW, fieldH);
+            if (currentMarkerPositions[i] != null)
+            {
+              int x = (int) (currentMarkerPositions[i].getX()*img.getWidth());
+              int y = (int) (currentMarkerPositions[i].getY()*img.getHeight());
+              g.setColor(Color.GREEN);
+              g.drawLine(x-100, y-100, x+100, y+100);
+              g.drawLine(x-100, y+100, x+100, y-100);
+            }
+          }
+        return serveJpeg(img);
+      }
+      catch (Exception e)
+      {
+        String txt = "VisiCam Error: "+e.getMessage();
+        VisiCam.error(txt);
+        return serveJpeg(cc.getDummyImage("html/error.jpg",txt));
+      }
   }
 
   @Override
@@ -165,29 +208,40 @@ public class VisiCamServer extends NanoHTTPD
 
   private Response serveTransformedImage() throws FrameGrabber.Exception, IOException, InterruptedException 
   {
-    VisiCam.log("Taking Snapshot...");
-    BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
-    VisiCam.log("Finding markers...");
-    int foundMarkers = 0;
-    RelativePoint[] currentMarkerPositions = new RelativePoint[lastMarkerPositions.length];
-    for (int i = 0; i < currentMarkerPositions.length; i++)
-    {
-      currentMarkerPositions[i] = cc.findMarker(img, markerSearchfields[i]);
-      if (currentMarkerPositions[i] == null)
-      {
-        currentMarkerPositions[i] = lastMarkerPositions[i];
-      }
-      else
-      {
-        foundMarkers ++;
-      }
-    }
-    lastMarkerPositions = currentMarkerPositions;
-    VisiCam.log("Found "+foundMarkers+"/"+lastMarkerPositions.length+" markers");
-    VisiCam.log("Applying transformation...");
-    Response result = serveJpeg(cc.applyHomography(img, lastMarkerPositions, outputWidth, outputHeight));
-    VisiCam.log("done");
-    return result;
+   try {
+       for (int retries=0; retries < 3; retries++) {
+          VisiCam.log("Taking Snapshot...");
+          BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
+          VisiCam.log("Finding markers...");
+          RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
+          boolean markerError=false;
+          for (int i = 0; i < currentMarkerPositions.length; i++)
+          {
+            if (currentMarkerPositions[i] == null)
+            {
+              String[] positionNames= {"top-left","top-right","bottom-left","bottom-right"};
+              String markerErrorMsg="Cannot find marker " + positionNames[i];
+              VisiCam.log(markerErrorMsg + " - retrying up to 3x.");
+              if (retries == 2) {
+                  throw new Exception(markerErrorMsg);
+              }
+              markerError=true;
+            }
+          }
+          if (markerError) {
+              continue;
+          }
+          VisiCam.log("Applying transformation...");
+          Response result = serveJpeg(cc.applyHomography(img, currentMarkerPositions, outputWidth, outputHeight));
+          VisiCam.log("done");
+          return result;
+        }
+        VisiCam.log("Not all markers found! Giving up.");
+        throw new Exception("Not enough markers found.");
+   }
+   catch (Exception e) {
+       return serveJpeg(cc.getDummyImage("html/error.jpg", "Error:"+e.getMessage()));
+   }
   }
   
   

@@ -55,7 +55,9 @@ public class VisiCam {
   {
     if (window != null)
     {
-      JOptionPane.showMessageDialog(window, error, "Error", JOptionPane.OK_OPTION);
+      window.addLog(error);
+      // dont show error dialog because it blocks the whole application
+      // JOptionPane.showMessageDialog(window, error, "Error", JOptionPane.OK_OPTION);
     }
     else
     {
