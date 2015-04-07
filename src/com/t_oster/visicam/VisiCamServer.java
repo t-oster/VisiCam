@@ -163,10 +163,19 @@ public class VisiCamServer extends NanoHTTPD
       }
       catch (Exception e)
       {
-        String txt = "VisiCam Error: "+e.getMessage();
+        String txt = "Error: "+e.getMessage();
         VisiCam.error(txt);
+        //return servePlaintextError(txt);
+        // unable to fetch the image from the camera, or something similarly strange happened.
+        // Do not serve a plaintext error message because the VisiCam web-configuration frontend cannot display it
         return serveJpeg(cc.getDummyImage("html/error.jpg",txt));
       }
+  }
+
+  // serve a HTTP 500 internal error with a plaintext message
+  // (a client like VisiCut or a browser can then display the message to the user)
+  public Response servePlaintextError(String errorText) {
+    return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, errorText);
   }
 
   @Override
@@ -202,7 +211,7 @@ public class VisiCamServer extends NanoHTTPD
         text += s.getClassName()+"."+s.getMethodName()+" in "+s.getFileName()+" line "+s.getLineNumber();
         text += "\n";
       }
-      return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, text);
+      return servePlaintextError(text);
     }
   }
 
@@ -223,7 +232,7 @@ public class VisiCamServer extends NanoHTTPD
               String markerErrorMsg="Cannot find marker " + positionNames[i];
               VisiCam.log(markerErrorMsg + " - retrying up to 3x.");
               if (retries == 2) {
-                  throw new Exception(markerErrorMsg);
+                  throw new Exception(markerErrorMsg + "\nIs the lasercutter open and the camera calibrated correctly?"); // TODO I18N for error messages, but how?
               }
               markerError=true;
             }
@@ -240,7 +249,9 @@ public class VisiCamServer extends NanoHTTPD
         throw new Exception("Not enough markers found.");
    }
    catch (Exception e) {
-       return serveJpeg(cc.getDummyImage("html/error.jpg", "Error:"+e.getMessage()));
+       VisiCam.error(e.getMessage());
+       return servePlaintextError("VisiCam Error: "+e.getMessage());
+       //return serveJpeg(cc.getDummyImage("html/error.jpg", "Error:"+e.getMessage()));
    }
   }
   
