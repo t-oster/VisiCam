@@ -81,7 +81,7 @@ else
     echo "[INFO] Fallback to precompiled javacv binaries for Raspbian!"
 
     # Try to copy them to dist folder
-    check_copy_javacv_file "lib/javacv-pi/target" "javacpp.jar"
-    check_copy_javacv_file "lib/javacv-pi/target" "javacv.jar"
-    check_copy_javacv_file "lib/javacv-pi/target" "javacv-linux-arm.jar"
+    check_copy_javacv_file "lib/javacv-pi" "javacpp.jar"
+    check_copy_javacv_file "lib/javacv-pi" "javacv.jar"
+    check_copy_javacv_file "lib/javacv-pi" "javacv-linux-arm.jar"
 fi
