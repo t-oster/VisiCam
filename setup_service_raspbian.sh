@@ -90,6 +90,7 @@ echo ""
 
 # Ask for user
 echo "[INFO] Please enter the name of the user, who is used to automatically start the service."
+echo "[INFO] Note: User must have write access to /var/run/ and /var/log/ !"
 echo "[INFO] (Default: root)"
 read -p "User: " USER
 echo ""
