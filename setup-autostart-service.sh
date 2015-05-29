@@ -34,7 +34,7 @@ fi
 cd "$(dirname $0)"
 
 # Check for dummy file
-if ! [ -e "visicam-service-template"]
+if ! [ -e "visicam-service-template" ]
 then
     echo "[ERROR] Could not find file visicam-service-template"
     exit 1
