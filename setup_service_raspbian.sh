@@ -157,3 +157,6 @@ then
     echo "[INFO] Creating auto start entry for visicam"
     update-rc.d visicam defaults
 fi
+
+# Success message
+echo "[INFO] Service visicam successfully configured for automatic system start"
