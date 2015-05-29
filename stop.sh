@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #    This file is part of VisiCam. (https://github.com/t-oster/VisiCam)
 #
