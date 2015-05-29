@@ -62,8 +62,8 @@ do_start()
 		#chown $DAEMONUSER:$DAEMONGROUP $PIDFILE || return 2
 	fi
 
-	# Check if process is already running
-	if [ -e $PIDFILE ]
+	# Check if PID is not empty and process with PID is running by looking up /proc/ dir
+	if [ ! -z "$PID" ] && [ -d /proc/$PID ]
 	then
 		# Read pid from file
 		read PID < $PIDFILE
