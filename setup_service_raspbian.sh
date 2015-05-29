@@ -144,7 +144,7 @@ then
     exit 1
 fi
 
-sed -r -i "s:^DAEMONGROUP=TEMPLATE-USER$:DAEMONGROUP=$USER:g" "/etc/init.d/visicam"
+sed -r -i "s:^DAEMONGROUP=TEMPLATE-GROUP$:DAEMONGROUP=$USER:g" "/etc/init.d/visicam"
 if [ $? -ne 0 ]
 then
     echo "[ERROR] Could not replace line DAEMONGROUP in file /etc/init.d/visicam"
