@@ -27,7 +27,7 @@ function check_copy_javacv_file
     then
         cp "$JAVACVPATH/target/$1" "dist/lib/$1"
 
-        # Check if copy was succesful
+        # Check if copy was successful
         if [ $? -ne 0 ]
         then
             echo "[WARNING] Could not copy $1 file to dist/lib/."
@@ -53,7 +53,7 @@ cd "$(dirname $0)"
 # Compile VisiCam
 ant jar
 
-# Check if compile was succesful
+# Check if compile was successful
 if [ $? -ne 0 ]
 then
     echo "[ERROR] Compilation error!"

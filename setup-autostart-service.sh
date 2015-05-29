@@ -53,8 +53,23 @@ DIRECTORY=$( pwd )
 # Copy dummy file to target
 cp "visicam-service-template" "/etc/init.d/visicam"
 
+# Check if copy was successful
+if [ $? -ne 0 ]
+then
+    echo "[ERROR] Could not copy visicam-service-template file to: /etc/init.d/visicam"
+    exit 1
+fi
+
 # Replace line in target file
-sed -r -i "s/^VISICAMPATH=\"TEMPLATE-DUMMY\"$/VISICAMPATH=\"$DIRECTORY\"/g" "/etc/init.d/visicam"
+# Note: Need to change delimiter for sed from / to : since slashes are part of directory path
+sed -r -i "s:^VISICAMPATH=\"TEMPLATE-DUMMY\"$:VISICAMPATH=\"$DIRECTORY\":g" "/etc/init.d/visicam"
+
+# Check if replace dummy line was successful
+if [ $? -ne 0 ]
+then
+    echo "[ERROR] Could not replace dummy line in file /etc/init.d/visicam"
+    exit 1
+fi
 
 # Add auto start entry for system boot, if it does not exist yet
 if ! ( ( ls -l "/etc/rc2.d" | grep visicam ) > "/dev/null" )
