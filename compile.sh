@@ -32,6 +32,8 @@ function check_copy_javacv_file
         then
             echo "[WARNING] Could not copy $1 file to dist/lib/."
             echo "[WARNING] VisiCam might get runtime errors!"
+        else
+            echo "[INFO] Copied file $1 successfully from javacv to VisiCam!"
         fi
     else
         echo "[WARNING] Could not find $1 file."
