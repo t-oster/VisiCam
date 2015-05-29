@@ -59,9 +59,11 @@ then
 fi
 
 # Ask for javacv path
+echo ""
 echo "[INFO] Please enter the full absolute path to javacv main directory without ending slash."
 echo "[INFO] Example: /home/pi/javacv"
 read -p "Path: " JAVACVPATH
+echo ""
 
 # Check javacv path and files
 # Copy them to dist folder
