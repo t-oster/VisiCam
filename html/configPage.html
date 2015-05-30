@@ -18,9 +18,20 @@
       <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
       <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
       <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
+      <hr>
       <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
       <p class="custom"><label for="captureCommand">CaptureCommand:</label><input id="captureCommand" name="captureCommand" type="text"/></p>
       <p class="custom"><label for="captureResult">CaptureResult:</label><input id="captureResult" name="captureResult" type="text"/></p>
+      <hr>
+      <!-- visicamRPiGPU integration start -->
+      <p><label for="visicamRPiGPUEnabled">visicamRPiGPU:</label><input id="visicamRPiGPUEnabled" name="visicamRPiGPUEnabled" type="checkbox"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUBinaryPath">BinaryPath:</label><input id="visicamRPiGPUBinaryPath" name="visicamRPiGPUBinaryPath" type="text"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUMatrixPath">MatrixPath:</label><input id="visicamRPiGPUMatrixPath" name="visicamRPiGPUMatrixPath" type="text"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageOriginalPath">OriginalImagePath:</label><input id="visicamRPiGPUImageOriginalPath" name="visicamRPiGPUImageOriginalPath" type="text"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPURefreshSeconds">RefreshSeconds:</label><input id="visicamRPiGPURefreshSeconds" name="visicamRPiGPURefreshSeconds" type="number"/><br><br>(For visicamRPiGPU ensure that InputWidth == OutputWidth and InputHeight == OutputHeight)</p>
+      <hr>
+      <!-- visicamRPiGPU integration end -->
       <p><label for="marker">Marker:</label>
       <p><select id="marker">
         <option value="0" selected="selected">top-left</option>
@@ -54,27 +65,97 @@
       $("#outputWidth").val(settings.outputWidth);
       $("#outputHeight").val(settings.outputHeight);
       $("#lockInsecureSettings").attr("checked",settings.lockInsecureSettings);
-      if (settings.lockInsecureSettings) {
-	      $("#lockInsecureSettings").attr("readonly",true);
-	      $("#customCapture").attr("readonly",true);
-	      $("#captureCommand").attr("readonly",true);
-	      $("#captureResult").attr("readonly",true);
-      }
-      if (settings.captureCommand != "")
+
+      // visicamRPiGPU integration start
+      // Ensure that InputWidth == OutputWidth and InputHeight == OutputHeight for visicamRPiGPU
+      if (settings.visicamRPiGPUBinaryPath != "" && settings.visicamRPiGPUMatrixPath != "" && settings.visicamRPiGPUImageOriginalPath != "" &&
+          settings.visicamRPiGPUImageProcessedPath != "" && settings.visicamRPiGPURefreshSeconds != "" &&
+          settings.inputWidth == settings.outputWidth && settings.inputHeight == settings.outputHeight)
       {
-        $("#customCapture").attr("checked", "checked");
+        $("#visicamRPiGPUEnabled").attr("checked", "checked");
+        $("#visicamRPiGPUBinaryPath").val(settings.visicamRPiGPUBinaryPath);
+        $("#visicamRPiGPUMatrixPath").val(settings.visicamRPiGPUMatrixPath);
+        $("#visicamRPiGPUImageOriginalPath").val(settings.visicamRPiGPUImageOriginalPath);
+        $("#visicamRPiGPUImageProcessedPath").val(settings.visicamRPiGPUImageProcessedPath);
+        $("#visicamRPiGPURefreshSeconds").val(settings.visicamRPiGPURefreshSeconds);
       }
       else
       {
-        $("#customCapture").removeAttr("checked");
+        $("#visicamRPiGPUEnabled").removeAttr("checked");
+
+        // visicamRPiGPU has higher priority than default capture, only process this if visicamRPiGPU does not fit
+        if (settings.captureCommand != "" && settings.captureResult != "")
+        {
+          $("#customCapture").attr("checked", "checked");
+          $("#captureCommand").val(settings.captureCommand);
+          $("#captureResult").val(settings.captureResult);
+        }
+        else
+        {
+          $("#customCapture").removeAttr("checked");
+        }
       }
-      $("#captureCommand").val(settings.captureCommand);
-      $("#captureResult").val(settings.captureResult);
-      updateCustomCapture();
+      // visicamRPiGPU integration end
+
+      if (settings.lockInsecureSettings)
+      {
+        $("#lockInsecureSettings").attr("disabled",true);
+        $("#customCapture").attr("disabled",true);
+        $("#captureCommand").attr("readonly",true);
+        $("#captureResult").attr("readonly",true);
+
+        // visicamRPiGPU integration start
+        $("#visicamRPiGPUEnabled").attr("disabled",true);
+        $("#visicamRPiGPUBinaryPath").attr("readonly",true);
+        $("#visicamRPiGPUMatrixPath").attr("readonly",true);
+        $("#visicamRPiGPUImageOriginalPath").attr("readonly",true);
+        $("#visicamRPiGPUImageProcessedPath").attr("readonly",true);
+        $("#visicamRPiGPURefreshSeconds").attr("readonly",true);
+        // visicamRPiGPU integration end
+      }
+
+      updateExtendedOptionsDisplay(false);
       selectMarker(0);
     }
-    function updateCustomCapture()
+
+    function onChangeCustomCapture()
     {
+        updateExtendedOptionsDisplay(true);
+    }
+
+    // visicamRPiGPU integration start
+    function onChangeVisicamRPiGPUEnabled()
+    {
+        updateExtendedOptionsDisplay(false);
+    }
+    // visicamRPiGPU integration end
+
+    function updateExtendedOptionsDisplay(invokedByDefault)
+    {
+      // visicamRPiGPU integration start
+      // Both should not be checked at the same time, the clicked one has priority
+      if ($("#visicamRPiGPUEnabled").is(":checked") && $("#customCapture").is(":checked"))
+      {
+          if (invokedByDefault)
+          {
+            $("#visicamRPiGPUEnabled").removeAttr("checked");
+          }
+          else
+          {
+            $("#customCapture").removeAttr("checked");
+          }
+      }
+      
+      if ($("#visicamRPiGPUEnabled").is(":checked"))
+      {
+        $(".visicamRPiGPU").slideDown(500);
+      }
+      else
+      {
+        $(".visicamRPiGPU").slideUp(500);
+      }
+      // visicamRPiGPU integration end
+
       if ($("#customCapture").is(":checked"))
       {
         $(".custom").slideDown(500);
@@ -106,6 +187,15 @@
       settings.captureCommand = $("#customCapture").is(":checked") ? $("#captureCommand").val() : "";
       settings.captureResult = $("#customCapture").is(":checked") ? $("#captureResult").val() : "";
       settings.lockInsecureSettings = $("#lockInsecureSettings").is(":checked");
+
+      // visicamRPiGPU integration start
+      settings.visicamRPiGPUBinaryPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUBinaryPath").val() : "";
+      settings.visicamRPiGPUMatrixPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUMatrixPath").val() : "";
+      settings.visicamRPiGPUImageOriginalPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageOriginalPath").val() : "";
+      settings.visicamRPiGPUImageProcessedPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageProcessedPath").val() : "";
+      settings.visicamRPiGPURefreshSeconds = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPURefreshSeconds").val() : 0;
+      // visicamRPiGPU integration end
+
       $.post("../settings", settings, function(){alert("Settings saved")});
     }
     $(document).ready(function () {
@@ -122,7 +212,11 @@
          selectMarker($("#marker").val());
        });
        $("#save").click(saveChanges);
-       $("#customCapture").change(updateCustomCapture);
+       $("#customCapture").change(onChangeCustomCapture);
+
+       // visicamRPiGPU integration start
+       $("#visicamRPiGPUEnabled").change(onChangeVisicamRPiGPUEnabled);
+       // visicamRPiGPU integration end
     });
     </script>
   </body>
