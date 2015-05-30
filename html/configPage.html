@@ -17,6 +17,7 @@
       <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number"/></p>
       <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
       <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
+      <p><label for="refreshSeconds">RefreshSeconds:</label><input id="refreshSeconds" name="refreshSeconds" type="number"/></p>
       <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
       <hr>
       <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
@@ -28,8 +29,7 @@
       <p class="visicamRPiGPU"><label for="visicamRPiGPUBinaryPath">BinaryPath:</label><input id="visicamRPiGPUBinaryPath" name="visicamRPiGPUBinaryPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUMatrixPath">MatrixPath:</label><input id="visicamRPiGPUMatrixPath" name="visicamRPiGPUMatrixPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUImageOriginalPath">OriginalImagePath:</label><input id="visicamRPiGPUImageOriginalPath" name="visicamRPiGPUImageOriginalPath" type="text"/></p>
-      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/></p>
-      <p class="visicamRPiGPU"><label for="visicamRPiGPURefreshSeconds">RefreshSeconds:</label><input id="visicamRPiGPURefreshSeconds" name="visicamRPiGPURefreshSeconds" type="number"/><br><br>(For visicamRPiGPU ensure that InputWidth == OutputWidth and InputHeight == OutputHeight)</p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/><br><br>(For visicamRPiGPU ensure that InputWidth == OutputWidth and InputHeight == OutputHeight)</p>
       <hr>
       <!-- visicamRPiGPU integration end -->
       <p><label for="marker">Marker:</label>
@@ -64,20 +64,20 @@
       $("#inputHeight").val(settings.inputHeight);
       $("#outputWidth").val(settings.outputWidth);
       $("#outputHeight").val(settings.outputHeight);
+      $("#refreshSeconds").val(settings.refreshSeconds);
       $("#lockInsecureSettings").attr("checked",settings.lockInsecureSettings);
 
       // visicamRPiGPU integration start
       // Ensure that InputWidth == OutputWidth and InputHeight == OutputHeight for visicamRPiGPU
       if (settings.visicamRPiGPUBinaryPath != "" && settings.visicamRPiGPUMatrixPath != "" && settings.visicamRPiGPUImageOriginalPath != "" &&
-          settings.visicamRPiGPUImageProcessedPath != "" && settings.visicamRPiGPURefreshSeconds != "" &&
-          settings.inputWidth == settings.outputWidth && settings.inputHeight == settings.outputHeight)
+          settings.visicamRPiGPUImageProcessedPath != "" && settings.inputWidth == settings.outputWidth && settings.inputHeight == settings.outputHeight)
       {
         $("#visicamRPiGPUEnabled").attr("checked", "checked");
         $("#visicamRPiGPUBinaryPath").val(settings.visicamRPiGPUBinaryPath);
         $("#visicamRPiGPUMatrixPath").val(settings.visicamRPiGPUMatrixPath);
         $("#visicamRPiGPUImageOriginalPath").val(settings.visicamRPiGPUImageOriginalPath);
         $("#visicamRPiGPUImageProcessedPath").val(settings.visicamRPiGPUImageProcessedPath);
-        $("#visicamRPiGPURefreshSeconds").val(settings.visicamRPiGPURefreshSeconds);
+        
       }
       else
       {
@@ -110,7 +110,6 @@
         $("#visicamRPiGPUMatrixPath").attr("readonly",true);
         $("#visicamRPiGPUImageOriginalPath").attr("readonly",true);
         $("#visicamRPiGPUImageProcessedPath").attr("readonly",true);
-        $("#visicamRPiGPURefreshSeconds").attr("readonly",true);
         // visicamRPiGPU integration end
       }
 
@@ -184,6 +183,7 @@
       settings.inputHeight = $("#inputHeight").val();
       settings.outputWidth = $("#outputWidth").val();
       settings.outputHeight = $("#outputHeight").val();
+      settings.refreshSeconds = $("#refreshSeconds").val();
       settings.captureCommand = $("#customCapture").is(":checked") ? $("#captureCommand").val() : "";
       settings.captureResult = $("#customCapture").is(":checked") ? $("#captureResult").val() : "";
       settings.lockInsecureSettings = $("#lockInsecureSettings").is(":checked");
@@ -193,7 +193,6 @@
       settings.visicamRPiGPUMatrixPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUMatrixPath").val() : "";
       settings.visicamRPiGPUImageOriginalPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageOriginalPath").val() : "";
       settings.visicamRPiGPUImageProcessedPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageProcessedPath").val() : "";
-      settings.visicamRPiGPURefreshSeconds = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPURefreshSeconds").val() : 0;
       // visicamRPiGPU integration end
 
       $.post("../settings", settings, function(){alert("Settings saved")});

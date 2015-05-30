@@ -34,6 +34,7 @@ public class VisiCamServer extends NanoHTTPD
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
+  private Integer refreshSeconds = 0;
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
@@ -41,7 +42,6 @@ public class VisiCamServer extends NanoHTTPD
   private String visicamRPiGPUMatrixPath = "";
   private String visicamRPiGPUImageOriginalPath = "";
   private String visicamRPiGPUImageProcessedPath = "";
-  private Integer visicamRPiGPURefreshSeconds = 0;
   // visicamRPiGPU integration end
 
   private Gson gson = new Gson();
@@ -91,6 +91,7 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("inputHeight", inputHeight);
     settings.put("outputWidth", outputWidth);
     settings.put("outputHeight", outputHeight);
+    settings.put("refreshSeconds", refreshSeconds);
     settings.put("captureCommand", captureCommand);
     settings.put("captureResult", captureResult);
     settings.put("lockInsecureSettings", lockInsecureSettings);
@@ -100,7 +101,6 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("visicamRPiGPUMatrixPath", visicamRPiGPUMatrixPath);
     settings.put("visicamRPiGPUImageOriginalPath", visicamRPiGPUImageOriginalPath);
     settings.put("visicamRPiGPUImageProcessedPath", visicamRPiGPUImageProcessedPath);
-    settings.put("visicamRPiGPURefreshSeconds", visicamRPiGPURefreshSeconds);
     // visicamRPiGPU integration end
 
     return new Response(HTTP_OK, "application/json", gson.toJson(settings));
@@ -113,6 +113,7 @@ public class VisiCamServer extends NanoHTTPD
     inputHeight = Integer.parseInt(parms.getProperty("inputHeight"));
     outputWidth = Integer.parseInt(parms.getProperty("outputWidth"));
     outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
+    refreshSeconds = Integer.parseInt(parms.getProperty("refreshSeconds"));
     lockInsecureSettings = Boolean.parseBoolean(parms.getProperty("lockInsecureSettings"));
     captureCommand = parms.getProperty("captureCommand");
     captureResult = parms.getProperty("captureResult");
@@ -122,7 +123,6 @@ public class VisiCamServer extends NanoHTTPD
     visicamRPiGPUMatrixPath = parms.getProperty("visicamRPiGPUMatrixPath");
     visicamRPiGPUImageOriginalPath = parms.getProperty("visicamRPiGPUImageOriginalPath");
     visicamRPiGPUImageProcessedPath = parms.getProperty("visicamRPiGPUImageProcessedPath");
-    visicamRPiGPURefreshSeconds = Integer.parseInt(parms.getProperty("visicamRPiGPURefreshSeconds"));
     // visicamRPiGPU integration end
 
     for (int i = 0; i < markerSearchfields.length; i++)
@@ -151,7 +151,6 @@ public class VisiCamServer extends NanoHTTPD
           parms.setProperty("visicamRPiGPUMatrixPath", visicamRPiGPUMatrixPath);
           parms.setProperty("visicamRPiGPUImageOriginalPath", visicamRPiGPUImageOriginalPath);
           parms.setProperty("visicamRPiGPUImageProcessedPath", visicamRPiGPUImageProcessedPath);
-          parms.setProperty("visicamRPiGPURefreshSeconds", visicamRPiGPURefreshSeconds.toString());
           // visicamRPiGPU integration end
       }
       parms.store(new FileOutputStream(config), "VisiCam Configuration");
