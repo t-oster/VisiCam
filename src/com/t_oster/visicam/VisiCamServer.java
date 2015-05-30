@@ -6,6 +6,7 @@ package com.t_oster.visicam;
 
 import com.google.gson.Gson;
 import com.googlecode.javacv.FrameGrabber;
+import com.googlecode.javacv.cpp.opencv_core.CvMat;
 import gr.ktogias.NanoHTTPD;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -34,7 +35,8 @@ public class VisiCamServer extends NanoHTTPD
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
-  private Integer refreshSeconds = 5;
+  private Integer refreshSeconds = 30;
+  private long lastSuccessfulRefreshTime = 0;
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
@@ -276,45 +278,130 @@ public class VisiCamServer extends NanoHTTPD
     }
   }
 
-  private Response serveTransformedImage() throws FrameGrabber.Exception, IOException, InterruptedException 
+  private Response serveTransformedImage()
   {
-   try {
-       for (int retries=0; retries < 3; retries++) {
-          VisiCam.log("Taking Snapshot...");
+   try
+   {
+       // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
+       // Or because application just started and homography matrix is not ready yet
+       if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
+       {
+            // If this is true, it will run synchronously, otherwise asynchronously
+            refreshHomography((cc.getHomographyMatrix() == null));
+       }
+
+       // Prepare response
+       Response result = null;
+
+       // TODO: visicamRPiGPU integration here
+       if (false)
+       {
+       }
+       else // Default behaviour
+       {
+          VisiCam.log("Getting Snapshot...");
           BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
-          VisiCam.log("Finding markers...");
-          RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
-          boolean markerError=false;
-          for (int i = 0; i < currentMarkerPositions.length; i++)
+
+          // Check if img is null, exception
+          if (img == null)
           {
-            if (currentMarkerPositions[i] == null)
-            {
-              String[] positionNames= {"top-left","top-right","bottom-left","bottom-right"};
-              String markerErrorMsg="Cannot find marker " + positionNames[i];
-              VisiCam.log(markerErrorMsg + " - retrying up to 3x.");
-              if (retries == 2) {
-                  throw new Exception(markerErrorMsg + "\nIs the lasercutter open and the camera calibrated correctly?"); // TODO I18N for error messages, but how?
-              }
-              markerError=true;
-            }
+              throw new Exception("Image is null before applying homography.");
           }
-          if (markerError) {
-              continue;
-          }
-          VisiCam.log("Applying transformation...");
-          Response result = serveJpeg(cc.applyHomography(img, currentMarkerPositions, outputWidth, outputHeight));
-          VisiCam.log("done");
-          return result;
-        }
-        VisiCam.log("Not all markers found! Giving up.");
-        throw new Exception("Not enough markers found.");
+
+          // Homography matrix must be set at this point
+          result = serveJpeg(cc.applyHomography(img));
+       }
+
+       return result;
    }
-   catch (Exception e) {
+   catch (Exception e)
+   {
        VisiCam.error(e.getMessage());
        return servePlaintextError("VisiCam Error: "+e.getMessage());
        //return serveJpeg(cc.getDummyImage("html/error.jpg", "Error:"+e.getMessage()));
    }
   }
-  
-  
+
+  private void refreshHomography(boolean synchronous) throws InterruptedException
+  {
+    Thread refreshHomographyThread = new Thread(new Runnable()
+    {
+        public void run()
+        {
+            try
+            {
+                VisiCam.log("Refresh started...");
+                BufferedImage img = null;
+                RelativePoint[] currentMarkerPositions = null;
+
+                // Loop for marker detection
+                for (int retries = 0; retries < 5; retries++)
+                {
+                  VisiCam.log("Getting Snapshot...");
+                  img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
+
+                  // If too much retries needed, throw exception
+                  if (retries >= 4)
+                  {
+                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                  }
+
+                  // Check if img is not null, otherwise retry
+                  if (img == null)
+                  {
+                      VisiCam.log("Image is null - retrying up to 4x.");
+                      continue;
+                  }
+
+                  VisiCam.log("Finding markers...");
+                  currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
+
+                  // Check if all markers were found
+                  boolean allMarkersFound = true;
+                  for (int i = 0; i < currentMarkerPositions.length; i++)
+                  {
+                    if (currentMarkerPositions[i] == null)
+                    {
+                      allMarkersFound = false;
+                      String[] positionNames = {"top-left","top-right","bottom-left","bottom-right"};
+                      String markerErrorMsg = "Cannot find marker " + positionNames[i];
+                      VisiCam.log(markerErrorMsg + " - retrying up to 4x.");
+                    }
+                  }
+
+                  // If too much retries needed, throw exception
+                  if (retries >= 4)
+                  {
+                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                  }
+
+                  // If all markers were found, stop loop, set timestamp. Otherwise continue trying.
+                  if (allMarkersFound)
+                  {
+                      lastSuccessfulRefreshTime = System.nanoTime();
+                      VisiCam.log("Refresh finished successfully...");
+                      break;
+                  }
+                }
+
+                // Update homography matrix with new marker positions
+                VisiCam.log("Updating homography matrix...");
+                cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight);
+            }
+            catch (Exception e)
+            {
+                VisiCam.error(e.getMessage());
+            }
+        }
+    });
+
+    // Start thread
+    refreshHomographyThread.start();
+
+    // Wait for thread to end if synchronous
+    if (synchronous)
+    {
+        refreshHomographyThread.join();
+    }
+  }
 }

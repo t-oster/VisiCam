@@ -29,7 +29,9 @@ import javax.imageio.ImageIO;
  */
 public class CameraController 
 {
-  
+  private volatile CvMat homographyMatrix = null;
+  private volatile Boolean synchronizedCamera = false;
+
   public InputStream toJpegStream(final BufferedImage img) throws IOException
   {
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -40,34 +42,42 @@ public class CameraController
   public BufferedImage takeSnapshot(int cameraIndex, int width, int height, String command, String path) throws Exception, IOException, InterruptedException
   {
     BufferedImage result;
+
+    // TODO: visicamRPiGPU integration here
     if (command == null || "".equals(command))
       {
-        OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
-        grabber.setImageHeight(height);
-        grabber.setImageWidth(width);
-        grabber.start();
-        IplImage img = grabber.grab();
-        result = img.getBufferedImage();
-        grabber.stop();
+        synchronized (synchronizedCamera)
+        {
+            OpenCVFrameGrabber grabber = new OpenCVFrameGrabber(cameraIndex);
+            grabber.setImageHeight(height);
+            grabber.setImageWidth(width);
+            grabber.start();
+            IplImage img = grabber.grab();
+            result = img.getBufferedImage();
+            grabber.stop();
+        }
       }
       else
       {
-        Runtime r = Runtime.getRuntime();
-        command = command.replace("%i", ""+cameraIndex).replace("%w", ""+width).replace("%h", ""+height).replace("%f", path);
-        Process pr = r.exec(command);
-        InputStream os = pr.getErrorStream();
-        int b;
-        String errors = "";
-        while  ((b = os.read()) != -1)
+        synchronized (synchronizedCamera)
         {
-          errors += ""+(char)b;
+            Runtime r = Runtime.getRuntime();
+            command = command.replace("%i", ""+cameraIndex).replace("%w", ""+width).replace("%h", ""+height).replace("%f", path);
+            Process pr = r.exec(command);
+            InputStream os = pr.getErrorStream();
+            int b;
+            String errors = "";
+            while  ((b = os.read()) != -1)
+            {
+              errors += ""+(char)b;
+            }
+            pr.waitFor();
+            if (pr.exitValue() != 0 && !"".equals(errors))
+            {
+              throw new Exception(errors);
+            }
+            result = ImageIO.read(new File(path));
         }
-        pr.waitFor();
-        if (pr.exitValue() != 0 && !"".equals(errors))
-        {
-          throw new Exception(errors);
-        }
-        result = ImageIO.read(new File(path));
     }
   return result;
   }
@@ -129,33 +139,71 @@ public class CameraController
       return currentMarkerPositions;
   }
   
-  public BufferedImage applyHomography(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight)
+  public BufferedImage applyHomography(BufferedImage img)
+  {
+    if (homographyMatrix != null)
+    {
+        synchronized (homographyMatrix)
+        {
+            IplImage in = IplImage.createFrom(img);
+            cvWarpPerspective(in, in, homographyMatrix);
+            return in.getBufferedImage();
+        }
+    }
+
+    return null;
+  }
+
+  public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight)
   {
     CvMat src = CvMat.create(markerPositions.length, 1, CV_32FC(2));
+
     for (int i = 0; i < markerPositions.length; i++)
     {
       Point p = markerPositions[i].toAbsolutePoint(img.getWidth(), img.getHeight());
       src.put(i, 0, 0, p.x);
       src.put(i, 0, 1, p.y);
     }
+
     CvMat dst = CvMat.create(4, 1, CV_32FC(2));
     dst.put(0, 0, 0, 0);
     dst.put(0, 0, 1, 0);
-    
     dst.put(1, 0, 0, img.getWidth());
     dst.put(1, 0, 1, 0);
-    
     dst.put(2, 0, 0, 0);
     dst.put(2, 0, 1, img.getHeight());
-    
     dst.put(3, 0, 0, img.getWidth());
     dst.put(3, 0, 1, img.getHeight());
-    
-    CvMat h = CvMat.create(3, 3);
-    cvFindHomography(src, dst, h, CV_RANSAC, 1, null);
-    IplImage in = IplImage.createFrom(img);
-    cvWarpPerspective(in, in, h);
-    return in.getBufferedImage();
+
+    CvMat localHomographyMatrix = CvMat.create(3, 3);
+    cvFindHomography(src, dst, localHomographyMatrix, CV_RANSAC, 1, null);
+
+    // This looks weird, but homographyMatrix must not be null for synchronized access
+    // If it is null, no need to care for synchronized access at all
+    if (homographyMatrix != null)
+    {
+        synchronized (homographyMatrix)
+        {
+            homographyMatrix = localHomographyMatrix;
+        }
+    }
+    else
+    {
+        homographyMatrix = localHomographyMatrix;
+    }
   }
-  
+
+  public CvMat getHomographyMatrix()
+  {
+    // homographyMatrix must not be null for synchronized access
+    if (homographyMatrix != null)
+    {
+        synchronized (homographyMatrix)
+        {
+            return homographyMatrix;
+        }
+    }
+
+    return null;
+  }
 }
