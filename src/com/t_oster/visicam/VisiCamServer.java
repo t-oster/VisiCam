@@ -34,7 +34,7 @@ public class VisiCamServer extends NanoHTTPD
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
-  private Integer refreshSeconds = 0;
+  private Integer refreshSeconds = 5;
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
@@ -117,6 +117,32 @@ public class VisiCamServer extends NanoHTTPD
     lockInsecureSettings = Boolean.parseBoolean(parms.getProperty("lockInsecureSettings"));
     captureCommand = parms.getProperty("captureCommand");
     captureResult = parms.getProperty("captureResult");
+
+    // Ensure that there are positive values for some integer values
+    if (inputWidth <= 0)
+    {
+        inputWidth = 1680;
+    }
+
+    if (inputHeight <= 0)
+    {
+        inputHeight = 1050;
+    }
+
+    if (outputWidth <= 0)
+    {
+        outputWidth = 1680;
+    }
+
+    if (outputHeight <= 0)
+    {
+        outputHeight = 1050;
+    }
+
+    if (refreshSeconds <= 0)
+    {
+        refreshSeconds = 5;
+    }
 
     // visicamRPiGPU integration start
     visicamRPiGPUBinaryPath = parms.getProperty("visicamRPiGPUBinaryPath");
