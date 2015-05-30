@@ -1,0 +1,5 @@
+These binaries were compiled on the Raspberry Pi 2 with the operating system Raspbian.
+
+OpenCV: Version 2.4.9
+JavaCV / JavaCPP : 0.7
+JDK: OpenJDK 7
