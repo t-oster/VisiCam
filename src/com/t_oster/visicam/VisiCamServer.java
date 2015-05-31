@@ -6,15 +6,25 @@ package com.t_oster.visicam;
 
 import com.google.gson.Gson;
 import com.googlecode.javacv.FrameGrabber;
+import com.googlecode.javacv.cpp.opencv_core.CvMat;
 import gr.ktogias.NanoHTTPD;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.lang.reflect.Field;
+import java.lang.management.ManagementFactory;
+import java.nio.channels.FileLock;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -34,6 +44,8 @@ public class VisiCamServer extends NanoHTTPD
   private int inputHeight = 1050;
   private int outputWidth = 1680;
   private int outputHeight = 1050;
+  private Integer refreshSeconds = 30;
+  private long lastSuccessfulRefreshTime = 0;
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
@@ -41,7 +53,10 @@ public class VisiCamServer extends NanoHTTPD
   private String visicamRPiGPUMatrixPath = "";
   private String visicamRPiGPUImageOriginalPath = "";
   private String visicamRPiGPUImageProcessedPath = "";
-  private Integer visicamRPiGPURefreshSeconds = 0;
+
+  private boolean visicamRPiGPUEnabled = false;
+  private int visicamRPiGPUPid = 0;
+  private int visicamPid = 0;
   // visicamRPiGPU integration end
 
   private Gson gson = new Gson();
@@ -91,6 +106,7 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("inputHeight", inputHeight);
     settings.put("outputWidth", outputWidth);
     settings.put("outputHeight", outputHeight);
+    settings.put("refreshSeconds", refreshSeconds);
     settings.put("captureCommand", captureCommand);
     settings.put("captureResult", captureResult);
     settings.put("lockInsecureSettings", lockInsecureSettings);
@@ -100,29 +116,131 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("visicamRPiGPUMatrixPath", visicamRPiGPUMatrixPath);
     settings.put("visicamRPiGPUImageOriginalPath", visicamRPiGPUImageOriginalPath);
     settings.put("visicamRPiGPUImageProcessedPath", visicamRPiGPUImageProcessedPath);
-    settings.put("visicamRPiGPURefreshSeconds", visicamRPiGPURefreshSeconds);
     // visicamRPiGPU integration end
 
     return new Response(HTTP_OK, "application/json", gson.toJson(settings));
   }
   
-  private void loadProperties(Properties parms)
+  private synchronized void loadProperties(Properties parms)
   {
+    boolean baseSettingsChanged = (inputWidth != Integer.parseInt(parms.getProperty("inputWidth"))
+                                   || inputHeight != Integer.parseInt(parms.getProperty("inputHeight"))
+                                   || outputWidth != Integer.parseInt(parms.getProperty("outputWidth"))
+                                   || outputHeight != Integer.parseInt(parms.getProperty("outputHeight"))
+                                   || refreshSeconds != Integer.parseInt(parms.getProperty("refreshSeconds")));
+
     cameraIndex = Integer.parseInt(parms.getProperty("cameraIndex"));
     inputWidth = Integer.parseInt(parms.getProperty("inputWidth"));
     inputHeight = Integer.parseInt(parms.getProperty("inputHeight"));
     outputWidth = Integer.parseInt(parms.getProperty("outputWidth"));
     outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
+    refreshSeconds = Integer.parseInt(parms.getProperty("refreshSeconds"));
     lockInsecureSettings = Boolean.parseBoolean(parms.getProperty("lockInsecureSettings"));
     captureCommand = parms.getProperty("captureCommand");
     captureResult = parms.getProperty("captureResult");
 
+    // Ensure that there are positive values for some integer values
+    if (inputWidth <= 0)
+    {
+        inputWidth = 1680;
+    }
+
+    if (inputHeight <= 0)
+    {
+        inputHeight = 1050;
+    }
+
+    if (outputWidth <= 0)
+    {
+        outputWidth = 1680;
+    }
+
+    if (outputHeight <= 0)
+    {
+        outputHeight = 1050;
+    }
+
+    if (refreshSeconds <= 0)
+    {
+        refreshSeconds = 30;
+    }
+
     // visicamRPiGPU integration start
+    String visicamRPiGPUBinaryPathPrevious = visicamRPiGPUBinaryPath;
+    boolean visicamRPiGPUEnabledTmp = visicamRPiGPUEnabled;
+    boolean visicamRPiGPUEnabledOptionsChanged = (baseSettingsChanged ||
+                                                  !visicamRPiGPUBinaryPath.equals(parms.getProperty("visicamRPiGPUBinaryPath")) ||
+                                                  !visicamRPiGPUMatrixPath.equals(parms.getProperty("visicamRPiGPUMatrixPath")) ||
+                                                  !visicamRPiGPUImageOriginalPath.equals(parms.getProperty("visicamRPiGPUImageOriginalPath")) ||
+                                                  !visicamRPiGPUImageProcessedPath.equals(parms.getProperty("visicamRPiGPUImageProcessedPath")));
+
     visicamRPiGPUBinaryPath = parms.getProperty("visicamRPiGPUBinaryPath");
     visicamRPiGPUMatrixPath = parms.getProperty("visicamRPiGPUMatrixPath");
     visicamRPiGPUImageOriginalPath = parms.getProperty("visicamRPiGPUImageOriginalPath");
     visicamRPiGPUImageProcessedPath = parms.getProperty("visicamRPiGPUImageProcessedPath");
-    visicamRPiGPURefreshSeconds = Integer.parseInt(parms.getProperty("visicamRPiGPURefreshSeconds"));
+
+    visicamRPiGPUEnabled = (!visicamRPiGPUBinaryPath.isEmpty() && !visicamRPiGPUMatrixPath.isEmpty() &&
+                            !visicamRPiGPUImageOriginalPath.isEmpty() && !visicamRPiGPUImageProcessedPath.isEmpty());
+
+    // Since visicamRPiGPU currently is only designed for Raspbian on the Raspberry Pi 2 (hardware acceleration)
+    // this platform dependency with bash commands is not an issue at all
+    Runtime runtime = Runtime.getRuntime();
+    File visicamRPiGPUbinaryFile = new File(visicamRPiGPUBinaryPath);
+    File visicamRPiGPUbinaryFilePrevious = new File(visicamRPiGPUBinaryPathPrevious);
+
+    try
+    {
+        // Check if visicamRPiGPU was turned off in settings
+        if (visicamRPiGPUEnabledTmp && !visicamRPiGPUEnabled)
+        {
+            VisiCam.log("visicamRPiGPU was disabled in settings, kill all visicamRPiGPU instances...");
+            Process killAll = runtime.exec("pkill -9 -f " + "^.*?" + visicamRPiGPUbinaryFilePrevious.getName() + "[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]].*?[[:space:]].*?[[:space:]].*?$");
+            killAll.waitFor();
+        }
+        // If visicamRPiGPU should be enabled, check if it is running with stored PID
+        else if (visicamRPiGPUEnabled)
+        {
+            // Check if visicamRPiGPU is already running with saved PID
+            Process checkAlive = runtime.exec("kill -0 " + visicamRPiGPUPid);
+            checkAlive.waitFor();
+
+            // visicamRPiGPU is not running with visicamRPiGPUPid OR needs to be restarted
+            if (checkAlive.exitValue() != 0 || visicamRPiGPUEnabledOptionsChanged)
+            {
+                VisiCam.log("visicamRPiGPU is not running with correct settings, kill all visicamRPiGPU instances...");
+                Process killAll = runtime.exec("pkill -9 -f " + "^.*?" + visicamRPiGPUbinaryFilePrevious.getName() + "[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]].*?[[:space:]].*?[[:space:]].*?$");
+                killAll.waitFor();
+
+                if (visicamRPiGPUbinaryFile.exists() && !visicamRPiGPUbinaryFile.isDirectory())
+                {
+                    VisiCam.log("Starting new visicamRPiGPU instance...");
+
+                    // Detect own visicam pid
+                    if (visicamPid == 0)
+                    {
+                        String pidMachineString = ManagementFactory.getRuntimeMXBean().getName();
+                        int seperatorIndex = pidMachineString.indexOf('@');
+                        visicamPid = Integer.parseInt(pidMachineString.substring(0, seperatorIndex));
+                    }
+
+                    // Usual process does not provide pid, need to use a trick here, since Process is actually a UNIXProcess (simple casting not possible?)
+                    String visicamRPiGPUCommand = visicamRPiGPUbinaryFile + " " + outputWidth + " " + outputHeight + " " + refreshSeconds + " " + visicamPid + " " + visicamRPiGPUMatrixPath + " " + visicamRPiGPUImageProcessedPath + " " + visicamRPiGPUImageOriginalPath;
+                    Process startNew = (runtime.exec(visicamRPiGPUCommand));
+                    Field pidField = startNew.getClass().getDeclaredField("pid");
+                    pidField.setAccessible(true);
+                    visicamRPiGPUPid = pidField.getInt(startNew);
+                }
+                else
+                {
+                    VisiCam.log("visicamRPiGPUbinaryFile does not exist, can not create new visicamRPiGPU instance...");
+                }
+            }
+        }
+    }
+    catch (Exception e)
+    {
+        VisiCam.error(e.getMessage());
+    }
     // visicamRPiGPU integration end
 
     for (int i = 0; i < markerSearchfields.length; i++)
@@ -151,7 +269,6 @@ public class VisiCamServer extends NanoHTTPD
           parms.setProperty("visicamRPiGPUMatrixPath", visicamRPiGPUMatrixPath);
           parms.setProperty("visicamRPiGPUImageOriginalPath", visicamRPiGPUImageOriginalPath);
           parms.setProperty("visicamRPiGPUImageProcessedPath", visicamRPiGPUImageProcessedPath);
-          parms.setProperty("visicamRPiGPURefreshSeconds", visicamRPiGPURefreshSeconds.toString());
           // visicamRPiGPU integration end
       }
       parms.store(new FileOutputStream(config), "VisiCam Configuration");
@@ -174,7 +291,7 @@ public class VisiCamServer extends NanoHTTPD
   {
       try
       {
-        BufferedImage img=cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
+        BufferedImage img=cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
         RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
         Graphics2D g=img.createGraphics();
           for (int i = 0; i < currentMarkerPositions.length; i++)
@@ -251,45 +368,188 @@ public class VisiCamServer extends NanoHTTPD
     }
   }
 
-  private Response serveTransformedImage() throws FrameGrabber.Exception, IOException, InterruptedException 
+  private Response serveTransformedImage()
   {
-   try {
-       for (int retries=0; retries < 3; retries++) {
-          VisiCam.log("Taking Snapshot...");
-          BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult);
-          VisiCam.log("Finding markers...");
-          RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
-          boolean markerError=false;
-          for (int i = 0; i < currentMarkerPositions.length; i++)
+   try
+   {
+       // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
+       // Or because application just started and homography matrix is not ready yet
+       if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
+       {
+            // Update last refresh timer
+            // If everything runs correctly, wait refreshSeconds for next run
+            // Will be reset to 0 on exception in thread to get an instant refresh on next request
+            updateLastRefreshTime();
+
+            // If this is true, it will run synchronously, otherwise asynchronously
+            refreshHomography((cc.getHomographyMatrix() == null));
+       }
+
+       // Prepare response
+       Response result = null;
+
+       // visicamRPiGPU integration start
+       if (visicamRPiGPUEnabled)
+       {
+          // Create file object
+          File processedImageFile = new File(visicamRPiGPUImageProcessedPath);
+
+          // Check if file exists
+          if (processedImageFile.exists() && !processedImageFile.isDirectory())
           {
-            if (currentMarkerPositions[i] == null)
-            {
-              String[] positionNames= {"top-left","top-right","bottom-left","bottom-right"};
-              String markerErrorMsg="Cannot find marker " + positionNames[i];
-              VisiCam.log(markerErrorMsg + " - retrying up to 3x.");
-              if (retries == 2) {
-                  throw new Exception(markerErrorMsg + "\nIs the lasercutter open and the camera calibrated correctly?"); // TODO I18N for error messages, but how?
-              }
-              markerError=true;
-            }
+            // Lock file
+            FileChannel processedImageChannel = new RandomAccessFile(processedImageFile, "rw").getChannel();
+            FileLock processedImageLock = processedImageChannel.lock();
+
+            // Read file data into memory
+            Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
+            byte[] processedImageFileData = Files.readAllBytes(processedImagePath);
+
+            // Unlock file
+            processedImageLock.release();
+
+            // Create input stream from memory file data
+            ByteArrayInputStream processedImageByteInputStream = new ByteArrayInputStream(processedImageFileData);
+
+            // Build result from input stream
+            result = new Response(HTTP_OK, "image/jpg", processedImageByteInputStream);
           }
-          if (markerError) {
-              continue;
+          else
+          {
+            throw new Exception("visicamRPiGPU: File at visicamRPiGPUImageProcessedPath does not exist!");
           }
-          VisiCam.log("Applying transformation...");
-          Response result = serveJpeg(cc.applyHomography(img, currentMarkerPositions, outputWidth, outputHeight));
-          VisiCam.log("done");
-          return result;
-        }
-        VisiCam.log("Not all markers found! Giving up.");
-        throw new Exception("Not enough markers found.");
+       }
+       // visicamRPiGPU integration end
+       else // Default behaviour
+       {
+          BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
+
+          // Check if img is null, exception
+          if (img == null)
+          {
+              throw new Exception("Image is null before applying homography.");
+          }
+
+          // Homography matrix must be set at this point
+          result = serveJpeg(cc.applyHomography(img));
+       }
+
+       return result;
    }
-   catch (Exception e) {
+   catch (Exception e)
+   {
        VisiCam.error(e.getMessage());
        return servePlaintextError("VisiCam Error: "+e.getMessage());
        //return serveJpeg(cc.getDummyImage("html/error.jpg", "Error:"+e.getMessage()));
    }
   }
-  
-  
+
+  private synchronized void updateLastRefreshTime()
+  {
+    lastSuccessfulRefreshTime = System.nanoTime();
+  }
+
+  private synchronized void resetLastRefreshTime()
+  {
+    lastSuccessfulRefreshTime = 0;
+  }
+
+  private void refreshHomography(boolean synchronous) throws InterruptedException
+  {
+    Thread refreshHomographyThread = new Thread(new Runnable()
+    {
+        public void run()
+        {
+            try
+            {
+                VisiCam.log("Refresh started...");
+                BufferedImage img = null;
+                RelativePoint[] currentMarkerPositions = null;
+
+                // Loop for marker detection
+                for (int retries = 0; retries < 5; retries++)
+                {
+                  // VisiCam.log("Getting Snapshot...");
+                  img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
+
+                  // If too much retries needed, throw exception
+                  if (retries >= 4)
+                  {
+                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                  }
+
+                  // Check if img is not null, otherwise retry
+                  if (img == null)
+                  {
+                      VisiCam.log("Image is null - retrying up to 4x.");
+                      continue;
+                  }
+
+                  // VisiCam.log("Finding markers...");
+                  currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
+
+                  // Check if all markers were found
+                  boolean allMarkersFound = true;
+                  for (int i = 0; i < currentMarkerPositions.length; i++)
+                  {
+                    if (currentMarkerPositions[i] == null)
+                    {
+                      allMarkersFound = false;
+                      String[] positionNames = {"top-left","top-right","bottom-left","bottom-right"};
+                      String markerErrorMsg = "Cannot find marker " + positionNames[i];
+                      VisiCam.log(markerErrorMsg + " - retrying up to 4x.");
+                    }
+                  }
+
+                  // If too much retries needed, throw exception
+                  if (retries >= 4)
+                  {
+                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                  }
+
+                  // If all markers were found, stop loop, set timestamp. Otherwise continue trying.
+                  if (allMarkersFound)
+                  {
+                      // VisiCam.log("Markers detected successfully...");
+                      break;
+                  }
+                }
+
+                // Update homography matrix with new marker positions
+                // VisiCam.log("Updating homography matrix...");
+                cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
+
+                // visicamRPiGPU integration start
+                if (visicamRPiGPUEnabled)
+                {
+                    // Reload current settings, ensure that visicamRPiGPU process is running correctly
+                    if (config.exists())
+                    {
+                        Properties p = new Properties();
+                        p.load(new FileInputStream(config));
+                        loadProperties(p);
+                    }
+                }
+
+                VisiCam.log("Refreshed successfully...");
+                updateLastRefreshTime();
+                // visicamRPiGPU integration end
+            }
+            catch (Exception e)
+            {
+                resetLastRefreshTime();
+                VisiCam.error(e.getMessage());
+            }
+        }
+    });
+
+    // Start thread
+    refreshHomographyThread.start();
+
+    // Wait for thread to end if synchronous
+    if (synchronous)
+    {
+        refreshHomographyThread.join();
+    }
+  }
 }
