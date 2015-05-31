@@ -19,8 +19,16 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileLock;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
 import javax.imageio.ImageIO;
 
 /**
@@ -38,13 +46,43 @@ public class CameraController
     ImageIO.write(img, "jpg", bos);
     return new ByteArrayInputStream(bos.toByteArray());
   }
-  
-  public BufferedImage takeSnapshot(int cameraIndex, int width, int height, String command, String path) throws Exception, IOException, InterruptedException
+
+  public synchronized BufferedImage takeSnapshot(int cameraIndex, int width, int height, String command, String path, boolean visicamRPiGPUEnabled, String visicamRPiGPUImageOriginalPath) throws Exception, IOException, InterruptedException
   {
     BufferedImage result;
 
-    // TODO: visicamRPiGPU integration here
-    if (command == null || "".equals(command))
+    // visicamRPiGPU integration start
+    if (visicamRPiGPUEnabled)
+    {
+        // Default return value
+        result = null;
+
+        // Create file object
+        File originalImageFile = new File(visicamRPiGPUImageOriginalPath);
+
+        // Check if file exists
+        if (originalImageFile.exists() && !originalImageFile.isDirectory())
+        {
+            // Lock file
+            FileChannel originalImageChannel = new RandomAccessFile(originalImageFile, "rw").getChannel();
+            FileLock originalImageLock = originalImageChannel.lock();
+
+            // Read file data into memory
+            Path originalImagePath = Paths.get(visicamRPiGPUImageOriginalPath);
+            byte[] originalImageFileData = Files.readAllBytes(originalImagePath);
+
+            // Unlock file
+            originalImageLock.release();
+
+            // Create input stream from memory file data
+            ByteArrayInputStream originalImageByteInputStream = new ByteArrayInputStream(originalImageFileData);
+
+            // Build result from input stream
+            result = ImageIO.read(originalImageByteInputStream);
+        }
+    }
+    // visicamRPiGPU integration end
+    else if (command == null || "".equals(command))
       {
         synchronized (synchronizedCamera)
         {
@@ -134,7 +172,7 @@ public class CameraController
       for (int i = 0; i < markerSearchfields.length; i++)
       {
         currentMarkerPositions[i] = findMarker(img, markerSearchfields[i]);
-        VisiCam.log("Marker " + i + ":"  + currentMarkerPositions[i] + " (in rectangle: " + markerSearchfields[i] +  ")");
+        // VisiCam.log("Marker " + i + ":"  + currentMarkerPositions[i] + " (in rectangle: " + markerSearchfields[i] +  ")");
       }
       return currentMarkerPositions;
   }
@@ -154,7 +192,7 @@ public class CameraController
     return null;
   }
 
-  public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight)
+  public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight, boolean visicamRPiGPUEnabled, String visicamRPiGPUMatrixPath) throws FileNotFoundException, IOException
   {
     CvMat src = CvMat.create(markerPositions.length, 1, CV_32FC(2));
 
@@ -177,6 +215,38 @@ public class CameraController
 
     CvMat localHomographyMatrix = CvMat.create(3, 3);
     cvFindHomography(src, dst, localHomographyMatrix, CV_RANSAC, 1, null);
+
+    // Write matrix values to file for visicamRPiGPU if needed
+    if (visicamRPiGPUEnabled)
+    {
+        // Create file object
+        File matrixOutputFile = new File(visicamRPiGPUMatrixPath);
+
+        // Check if file exists
+        // Lock file
+        FileChannel matrixOutputChannel = new RandomAccessFile(matrixOutputFile, "rw").getChannel();
+        FileLock matrixOutputLock = matrixOutputChannel.lock();
+
+        // Write matrix values to file
+        PrintWriter matrixOutputWriter = new PrintWriter(matrixOutputFile);
+
+        // Iterate over matrix and write data
+        for (int i = 0; i < 3; ++i)
+        {
+            for (int j = 0; j < 3; ++j)
+            {
+                float matrixValue = (float)(localHomographyMatrix.get(i, j));
+                matrixOutputWriter.println(matrixValue);
+            }
+        }
+
+        // Close writer
+        matrixOutputWriter.flush();
+        matrixOutputWriter.close();
+
+        // Unlock file
+        matrixOutputLock.release();
+    }
 
     // This looks weird, but homographyMatrix must not be null for synchronized access
     // If it is null, no need to care for synchronized access at all

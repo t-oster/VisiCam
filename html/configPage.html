@@ -29,7 +29,7 @@
       <p class="visicamRPiGPU"><label for="visicamRPiGPUBinaryPath">BinaryPath:</label><input id="visicamRPiGPUBinaryPath" name="visicamRPiGPUBinaryPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUMatrixPath">MatrixPath:</label><input id="visicamRPiGPUMatrixPath" name="visicamRPiGPUMatrixPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUImageOriginalPath">OriginalImagePath:</label><input id="visicamRPiGPUImageOriginalPath" name="visicamRPiGPUImageOriginalPath" type="text"/></p>
-      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/><br><br>(For visicamRPiGPU ensure that InputWidth == OutputWidth and InputHeight == OutputHeight)</p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/><br><br>For visicamRPiGPU ensure that: InputWidth == OutputWidth, InputHeight == OutputHeight,<br>enough GPU split memory in raspi-config (1280x720 => 128 MB),<br>width in [640, 1920], height in [480, 1080],<br>width multiple of 32, height multiple of 16</p>
       <hr>
       <!-- visicamRPiGPU integration end -->
       <p><label for="marker">Marker:</label>
