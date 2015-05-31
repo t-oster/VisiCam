@@ -162,7 +162,7 @@ public class VisiCamServer extends NanoHTTPD
 
     if (refreshSeconds <= 0)
     {
-        refreshSeconds = 5;
+        refreshSeconds = 30;
     }
 
     // visicamRPiGPU integration start
