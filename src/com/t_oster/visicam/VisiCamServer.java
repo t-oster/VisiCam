@@ -405,8 +405,9 @@ public class VisiCamServer extends NanoHTTPD
             Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
             byte[] processedImageFileData = Files.readAllBytes(processedImagePath);
 
-            // Unlock file
+            // Unlock, close file
             processedImageLock.release();
+            processedImageChannel.close();
 
             // Create input stream from memory file data
             ByteArrayInputStream processedImageByteInputStream = new ByteArrayInputStream(processedImageFileData);
@@ -526,7 +527,9 @@ public class VisiCamServer extends NanoHTTPD
                     if (config.exists())
                     {
                         Properties p = new Properties();
-                        p.load(new FileInputStream(config));
+                        FileInputStream inputStream = new FileInputStream(config);
+                        p.load(inputStream);
+                        inputStream.close();
                         loadProperties(p);
                     }
                 }
