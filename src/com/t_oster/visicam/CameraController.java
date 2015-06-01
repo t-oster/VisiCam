@@ -71,8 +71,9 @@ public class CameraController
             Path originalImagePath = Paths.get(visicamRPiGPUImageOriginalPath);
             byte[] originalImageFileData = Files.readAllBytes(originalImagePath);
 
-            // Unlock file
+            // Unlock, close file
             originalImageLock.release();
+            originalImageChannel.close();
 
             // Create input stream from memory file data
             ByteArrayInputStream originalImageByteInputStream = new ByteArrayInputStream(originalImageFileData);
@@ -244,8 +245,9 @@ public class CameraController
         matrixOutputWriter.flush();
         matrixOutputWriter.close();
 
-        // Unlock file
+        // Unlock, close file
         matrixOutputLock.release();
+        matrixOutputChannel.close();
     }
 
     // This looks weird, but homographyMatrix must not be null for synchronized access
