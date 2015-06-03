@@ -26,6 +26,7 @@
       <hr>
       <!-- visicamRPiGPU integration start -->
       <p><label for="visicamRPiGPUEnabled">visicamRPiGPU:</label><input id="visicamRPiGPUEnabled" name="visicamRPiGPUEnabled" type="checkbox"/></p>
+      <p class="visicamRPiGPU"><label for="visicamRPiGPUInactivitySeconds">InactivitySeconds:</label><input id="visicamRPiGPUInactivitySeconds" name="visicamRPiGPUInactivitySeconds" type="number"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUBinaryPath">BinaryPath:</label><input id="visicamRPiGPUBinaryPath" name="visicamRPiGPUBinaryPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUMatrixPath">MatrixPath:</label><input id="visicamRPiGPUMatrixPath" name="visicamRPiGPUMatrixPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUImageOriginalPath">OriginalImagePath:</label><input id="visicamRPiGPUImageOriginalPath" name="visicamRPiGPUImageOriginalPath" type="text"/></p>
@@ -70,9 +71,11 @@
       // visicamRPiGPU integration start
       // Ensure that InputWidth == OutputWidth and InputHeight == OutputHeight for visicamRPiGPU
       if (settings.visicamRPiGPUBinaryPath != "" && settings.visicamRPiGPUMatrixPath != "" && settings.visicamRPiGPUImageOriginalPath != "" &&
-          settings.visicamRPiGPUImageProcessedPath != "" && settings.inputWidth == settings.outputWidth && settings.inputHeight == settings.outputHeight)
+          settings.visicamRPiGPUImageProcessedPath != "" && settings.visicamRPiGPUInactivitySeconds != "" &&
+          settings.inputWidth == settings.outputWidth && settings.inputHeight == settings.outputHeight)
       {
         $("#visicamRPiGPUEnabled").attr("checked", "checked");
+        $("#visicamRPiGPUInactivitySeconds").val(settings.visicamRPiGPUInactivitySeconds);
         $("#visicamRPiGPUBinaryPath").val(settings.visicamRPiGPUBinaryPath);
         $("#visicamRPiGPUMatrixPath").val(settings.visicamRPiGPUMatrixPath);
         $("#visicamRPiGPUImageOriginalPath").val(settings.visicamRPiGPUImageOriginalPath);
@@ -106,6 +109,7 @@
 
         // visicamRPiGPU integration start
         $("#visicamRPiGPUEnabled").attr("disabled",true);
+        $("#visicamRPiGPUInactivitySeconds").attr("readonly",true);
         $("#visicamRPiGPUBinaryPath").attr("readonly",true);
         $("#visicamRPiGPUMatrixPath").attr("readonly",true);
         $("#visicamRPiGPUImageOriginalPath").attr("readonly",true);
@@ -189,6 +193,7 @@
       settings.lockInsecureSettings = $("#lockInsecureSettings").is(":checked");
 
       // visicamRPiGPU integration start
+      settings.visicamRPiGPUInactivitySeconds = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUInactivitySeconds").val() : "";
       settings.visicamRPiGPUBinaryPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUBinaryPath").val() : "";
       settings.visicamRPiGPUMatrixPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUMatrixPath").val() : "";
       settings.visicamRPiGPUImageOriginalPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageOriginalPath").val() : "";
