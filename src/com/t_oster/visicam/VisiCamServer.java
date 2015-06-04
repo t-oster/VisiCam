@@ -57,6 +57,7 @@ public class VisiCamServer extends NanoHTTPD
   private String visicamRPiGPUImageProcessedPath = "";
 
   private Thread visicamRPiGPUInactivityThread = null;
+  private volatile Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
   private boolean visicamRPiGPUEnabled = false;
   private int visicamRPiGPUPid = -10;           // Strange default values for PIDs, but -1, 0 and 1, other positive numbers
   private int visicamPid = -10;                 // are all assigned, would return wrong results in checking if process runs
@@ -431,6 +432,12 @@ public class VisiCamServer extends NanoHTTPD
   {
    try
    {
+       // Avoid exception at initialization
+       if (cc == null)
+       {
+            return null;
+       }
+
        // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
        // Or because application just started and homography matrix is not ready yet
        if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
@@ -456,17 +463,24 @@ public class VisiCamServer extends NanoHTTPD
           // Check if file exists
           if (processedImageFile.exists() && !processedImageFile.isDirectory())
           {
-            // Lock file
-            FileChannel processedImageChannel = new RandomAccessFile(processedImageFile, "rw").getChannel();
-            FileLock processedImageLock = processedImageChannel.lock();
+            // Variable to store result
+            byte[] processedImageFileData = null;
 
-            // Read file data into memory
-            Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
-            byte[] processedImageFileData = Files.readAllBytes(processedImagePath);
+            // Synchronized access because file lock may only be acquired once by this Java application
+            synchronized (visicamRPiGPUFileLockSynchronization)
+            {
+                // Lock file
+                FileChannel processedImageChannel = new RandomAccessFile(processedImageFile, "rw").getChannel();
+                FileLock processedImageLock = processedImageChannel.lock();
 
-            // Unlock, close file
-            processedImageLock.release();
-            processedImageChannel.close();
+                // Read file data into memory
+                Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
+                processedImageFileData = Files.readAllBytes(processedImagePath);
+
+                // Unlock, close file
+                processedImageLock.release();
+                processedImageChannel.close();
+            }
 
             // Create input stream from memory file data
             ByteArrayInputStream processedImageByteInputStream = new ByteArrayInputStream(processedImageFileData);

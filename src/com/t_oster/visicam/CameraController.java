@@ -38,7 +38,11 @@ import javax.imageio.ImageIO;
 public class CameraController 
 {
   private volatile CvMat homographyMatrix = null;
-  private volatile Boolean synchronizedCamera = false;
+  private volatile Boolean synchronizedCamera = false;                       // Dummy variable only used for camera access synchronization
+
+  // visicamRPiGPU integration start
+  private volatile Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
+  // visicamRPiGPU integration end
 
   public InputStream toJpegStream(final BufferedImage img) throws IOException
   {
@@ -63,17 +67,24 @@ public class CameraController
         // Check if file exists
         if (originalImageFile.exists() && !originalImageFile.isDirectory())
         {
-            // Lock file
-            FileChannel originalImageChannel = new RandomAccessFile(originalImageFile, "rw").getChannel();
-            FileLock originalImageLock = originalImageChannel.lock();
+            // Variable to store result
+            byte[] originalImageFileData = null;
 
-            // Read file data into memory
-            Path originalImagePath = Paths.get(visicamRPiGPUImageOriginalPath);
-            byte[] originalImageFileData = Files.readAllBytes(originalImagePath);
+            // Synchronized access because file lock may only be acquired once by this Java application
+            synchronized (visicamRPiGPUFileLockSynchronization)
+            {
+                // Lock file
+                FileChannel originalImageChannel = new RandomAccessFile(originalImageFile, "rw").getChannel();
+                FileLock originalImageLock = originalImageChannel.lock();
 
-            // Unlock, close file
-            originalImageLock.release();
-            originalImageChannel.close();
+                // Read file data into memory
+                Path originalImagePath = Paths.get(visicamRPiGPUImageOriginalPath);
+                originalImageFileData = Files.readAllBytes(originalImagePath);
+
+                // Unlock, close file
+                originalImageLock.release();
+                originalImageChannel.close();
+            }
 
             // Create input stream from memory file data
             ByteArrayInputStream originalImageByteInputStream = new ByteArrayInputStream(originalImageFileData);
