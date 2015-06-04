@@ -46,17 +46,21 @@ public class VisiCamServer extends NanoHTTPD
   private int outputHeight = 1050;
   private Integer refreshSeconds = 30;
   private long lastSuccessfulRefreshTime = 0;
+  private long lastSuccessfulImageServedTime = System.nanoTime();
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
+  private Integer visicamRPiGPUInactivitySeconds = 600;
   private String visicamRPiGPUBinaryPath = "";
   private String visicamRPiGPUMatrixPath = "";
   private String visicamRPiGPUImageOriginalPath = "";
   private String visicamRPiGPUImageProcessedPath = "";
 
+  private Thread visicamRPiGPUInactivityThread = null;
+  private volatile Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
   private boolean visicamRPiGPUEnabled = false;
-  private int visicamRPiGPUPid = 0;
-  private int visicamPid = 0;
+  private int visicamRPiGPUPid = -10;           // Strange default values for PIDs, but -1, 0 and 1, other positive numbers
+  private int visicamPid = -10;                 // are all assigned, would return wrong results in checking if process runs
   // visicamRPiGPU integration end
 
   private Gson gson = new Gson();
@@ -95,6 +99,46 @@ public class VisiCamServer extends NanoHTTPD
         new RelativePoint(markerSearchfields[2].x + markerSearchfields[2].getWidth()/2, markerSearchfields[2].y + markerSearchfields[2].getHeight()/2),
         new RelativePoint(markerSearchfields[3].x + markerSearchfields[3].getWidth()/2, markerSearchfields[3].y + markerSearchfields[3].getHeight()/2)
       };
+
+    // visicamRPiGPU integration start
+    visicamRPiGPUInactivityThread = new Thread(new Runnable()
+    {
+        public void run()
+        {
+            try
+            {
+                while (true)
+                {
+                    if ((System.nanoTime() - lastSuccessfulImageServedTime) >= (visicamRPiGPUInactivitySeconds * 1000000000L))
+                    {
+                        Runtime runtime = Runtime.getRuntime();
+                        File visicamRPiGPUbinaryFile = new File(visicamRPiGPUBinaryPath);
+
+                        // Check if visicamRPiGPU is already running with saved PID
+                        Process checkAlive = runtime.exec("kill -0 " + visicamRPiGPUPid);
+                        checkAlive.waitFor();
+
+                        // visicamRPiGPU is running with visicamRPiGPUPid
+                        if (checkAlive.exitValue() == 0)
+                        {
+                            VisiCam.log("visicamRPiGPU instance is killed because of inactivity...");
+                            Process killAll = runtime.exec("pkill -9 -f " + "^.*?" + visicamRPiGPUbinaryFile.getName() + "[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]].*?[[:space:]].*?[[:space:]].*?$");
+                            visicamRPiGPUPid = -10;
+                        }
+                    }
+
+                    Thread.sleep(refreshSeconds * 1000);
+                }
+            }
+            catch (Exception e)
+            {
+                VisiCam.log("visicamRPiGPU inactivity thread exception: " + e.getMessage());
+            }
+        }
+    });
+
+    visicamRPiGPUInactivityThread.start();
+    // visicamRPiGPU integration end
   }
   
   private Response serveSettings()
@@ -112,6 +156,7 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("lockInsecureSettings", lockInsecureSettings);
 
     // visicamRPiGPU integration start
+    settings.put("visicamRPiGPUInactivitySeconds", visicamRPiGPUInactivitySeconds);
     settings.put("visicamRPiGPUBinaryPath", visicamRPiGPUBinaryPath);
     settings.put("visicamRPiGPUMatrixPath", visicamRPiGPUMatrixPath);
     settings.put("visicamRPiGPUImageOriginalPath", visicamRPiGPUImageOriginalPath);
@@ -174,13 +219,26 @@ public class VisiCamServer extends NanoHTTPD
                                                   !visicamRPiGPUImageOriginalPath.equals(parms.getProperty("visicamRPiGPUImageOriginalPath")) ||
                                                   !visicamRPiGPUImageProcessedPath.equals(parms.getProperty("visicamRPiGPUImageProcessedPath")));
 
+    visicamRPiGPUInactivitySeconds = Integer.parseInt(parms.getProperty("visicamRPiGPUInactivitySeconds"));
+
+    if (visicamRPiGPUInactivitySeconds <= 0)
+    {
+        visicamRPiGPUInactivitySeconds = 600;
+    }
+
     visicamRPiGPUBinaryPath = parms.getProperty("visicamRPiGPUBinaryPath");
     visicamRPiGPUMatrixPath = parms.getProperty("visicamRPiGPUMatrixPath");
     visicamRPiGPUImageOriginalPath = parms.getProperty("visicamRPiGPUImageOriginalPath");
     visicamRPiGPUImageProcessedPath = parms.getProperty("visicamRPiGPUImageProcessedPath");
 
-    visicamRPiGPUEnabled = (!visicamRPiGPUBinaryPath.isEmpty() && !visicamRPiGPUMatrixPath.isEmpty() &&
+    visicamRPiGPUEnabled = (visicamRPiGPUInactivitySeconds > 0 && !visicamRPiGPUBinaryPath.isEmpty() && !visicamRPiGPUMatrixPath.isEmpty() &&
                             !visicamRPiGPUImageOriginalPath.isEmpty() && !visicamRPiGPUImageProcessedPath.isEmpty());
+
+    // On startup no previous path is set, fallback to use current path if available, so current instances might be killed correctly
+    if (visicamRPiGPUBinaryPathPrevious.isEmpty() && !visicamRPiGPUBinaryPath.isEmpty())
+    {
+        visicamRPiGPUBinaryPathPrevious = visicamRPiGPUBinaryPath;
+    }
 
     // Since visicamRPiGPU currently is only designed for Raspbian on the Raspberry Pi 2 (hardware acceleration)
     // this platform dependency with bash commands is not an issue at all
@@ -196,6 +254,7 @@ public class VisiCamServer extends NanoHTTPD
             VisiCam.log("visicamRPiGPU was disabled in settings, kill all visicamRPiGPU instances...");
             Process killAll = runtime.exec("pkill -9 -f " + "^.*?" + visicamRPiGPUbinaryFilePrevious.getName() + "[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]].*?[[:space:]].*?[[:space:]].*?$");
             killAll.waitFor();
+            visicamRPiGPUPid = -10;
         }
         // If visicamRPiGPU should be enabled, check if it is running with stored PID
         else if (visicamRPiGPUEnabled)
@@ -210,13 +269,14 @@ public class VisiCamServer extends NanoHTTPD
                 VisiCam.log("visicamRPiGPU is not running with correct settings, kill all visicamRPiGPU instances...");
                 Process killAll = runtime.exec("pkill -9 -f " + "^.*?" + visicamRPiGPUbinaryFilePrevious.getName() + "[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]][0-9]+[[:space:]].*?[[:space:]].*?[[:space:]].*?$");
                 killAll.waitFor();
+                visicamRPiGPUPid = -10;
 
                 if (visicamRPiGPUbinaryFile.exists() && !visicamRPiGPUbinaryFile.isDirectory())
                 {
                     VisiCam.log("Starting new visicamRPiGPU instance...");
 
                     // Detect own visicam pid
-                    if (visicamPid == 0)
+                    if (visicamPid == -10)
                     {
                         String pidMachineString = ManagementFactory.getRuntimeMXBean().getName();
                         int seperatorIndex = pidMachineString.indexOf('@');
@@ -372,6 +432,12 @@ public class VisiCamServer extends NanoHTTPD
   {
    try
    {
+       // Avoid exception at initialization
+       if (cc == null)
+       {
+            return null;
+       }
+
        // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
        // Or because application just started and homography matrix is not ready yet
        if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
@@ -397,17 +463,24 @@ public class VisiCamServer extends NanoHTTPD
           // Check if file exists
           if (processedImageFile.exists() && !processedImageFile.isDirectory())
           {
-            // Lock file
-            FileChannel processedImageChannel = new RandomAccessFile(processedImageFile, "rw").getChannel();
-            FileLock processedImageLock = processedImageChannel.lock();
+            // Variable to store result
+            byte[] processedImageFileData = null;
 
-            // Read file data into memory
-            Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
-            byte[] processedImageFileData = Files.readAllBytes(processedImagePath);
+            // Synchronized access because file lock may only be acquired once by this Java application
+            synchronized (visicamRPiGPUFileLockSynchronization)
+            {
+                // Lock file
+                FileChannel processedImageChannel = new RandomAccessFile(processedImageFile, "rw").getChannel();
+                FileLock processedImageLock = processedImageChannel.lock();
 
-            // Unlock, close file
-            processedImageLock.release();
-            processedImageChannel.close();
+                // Read file data into memory
+                Path processedImagePath = Paths.get(visicamRPiGPUImageProcessedPath);
+                processedImageFileData = Files.readAllBytes(processedImagePath);
+
+                // Unlock, close file
+                processedImageLock.release();
+                processedImageChannel.close();
+            }
 
             // Create input stream from memory file data
             ByteArrayInputStream processedImageByteInputStream = new ByteArrayInputStream(processedImageFileData);
@@ -434,6 +507,9 @@ public class VisiCamServer extends NanoHTTPD
           // Homography matrix must be set at this point
           result = serveJpeg(cc.applyHomography(img));
        }
+
+       // Set last successful image served timer
+       lastSuccessfulImageServedTime = System.nanoTime();
 
        return result;
    }
