@@ -46,7 +46,7 @@ public class VisiCamServer extends NanoHTTPD
   private int outputHeight = 1050;
   private Integer refreshSeconds = 30;
   private long lastSuccessfulRefreshTime = 0;
-  private long lastSuccessfulImageServedTime = System.nanoTime();
+  private long lastRequestTime = System.nanoTime();
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
@@ -109,7 +109,7 @@ public class VisiCamServer extends NanoHTTPD
             {
                 while (true)
                 {
-                    if ((System.nanoTime() - lastSuccessfulImageServedTime) >= (visicamRPiGPUInactivitySeconds * 1000000000L))
+                    if ((System.nanoTime() - lastRequestTime) >= (visicamRPiGPUInactivitySeconds * 1000000000L))
                     {
                         Runtime runtime = Runtime.getRuntime();
                         File visicamRPiGPUbinaryFile = new File(visicamRPiGPUBinaryPath);
@@ -351,6 +351,24 @@ public class VisiCamServer extends NanoHTTPD
   {
       try
       {
+        // Set request timer
+        lastRequestTime = System.nanoTime();
+
+        // visicamRPiGPU integration start
+        if (visicamRPiGPUEnabled)
+        {
+            // Reload current settings, ensure that visicamRPiGPU process is running correctly
+            if (config.exists())
+            {
+                Properties p = new Properties();
+                FileInputStream inputStream = new FileInputStream(config);
+                p.load(inputStream);
+                inputStream.close();
+                loadProperties(p);
+            }
+        }
+        // visicamRPiGPU integration end
+
         BufferedImage img=cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
         RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
         Graphics2D g=img.createGraphics();
@@ -438,6 +456,9 @@ public class VisiCamServer extends NanoHTTPD
             return null;
        }
 
+       // Set request timer
+       lastRequestTime = System.nanoTime();
+
        // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
        // Or because application just started and homography matrix is not ready yet
        if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
@@ -446,6 +467,21 @@ public class VisiCamServer extends NanoHTTPD
             // If everything runs correctly, wait refreshSeconds for next run
             // Will be reset to 0 on exception in thread to get an instant refresh on next request
             updateLastRefreshTime();
+
+            // visicamRPiGPU integration start
+            if (visicamRPiGPUEnabled)
+            {
+                // Reload current settings, ensure that visicamRPiGPU process is running correctly
+                if (config.exists())
+                {
+                    Properties p = new Properties();
+                    FileInputStream inputStream = new FileInputStream(config);
+                    p.load(inputStream);
+                    inputStream.close();
+                    loadProperties(p);
+                }
+            }
+            // visicamRPiGPU integration end
 
             // If this is true, it will run synchronously, otherwise asynchronously
             refreshHomography((cc.getHomographyMatrix() == null));
@@ -508,9 +544,6 @@ public class VisiCamServer extends NanoHTTPD
           result = serveJpeg(cc.applyHomography(img));
        }
 
-       // Set last successful image served timer
-       lastSuccessfulImageServedTime = System.nanoTime();
-
        return result;
    }
    catch (Exception e)
@@ -539,6 +572,7 @@ public class VisiCamServer extends NanoHTTPD
         {
             try
             {
+                // Log message and variables
                 VisiCam.log("Refresh started...");
                 BufferedImage img = null;
                 RelativePoint[] currentMarkerPositions = null;
@@ -596,23 +630,9 @@ public class VisiCamServer extends NanoHTTPD
                 // VisiCam.log("Updating homography matrix...");
                 cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
 
-                // visicamRPiGPU integration start
-                if (visicamRPiGPUEnabled)
-                {
-                    // Reload current settings, ensure that visicamRPiGPU process is running correctly
-                    if (config.exists())
-                    {
-                        Properties p = new Properties();
-                        FileInputStream inputStream = new FileInputStream(config);
-                        p.load(inputStream);
-                        inputStream.close();
-                        loadProperties(p);
-                    }
-                }
-
+                // Log message and set timer
                 VisiCam.log("Refreshed successfully...");
                 updateLastRefreshTime();
-                // visicamRPiGPU integration end
             }
             catch (Exception e)
             {
