@@ -6,7 +6,6 @@ package com.t_oster.visicam;
 
 import com.google.gson.Gson;
 import com.googlecode.javacv.FrameGrabber;
-import com.googlecode.javacv.cpp.opencv_core.CvMat;
 import gr.ktogias.NanoHTTPD;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -57,7 +56,7 @@ public class VisiCamServer extends NanoHTTPD
   private String visicamRPiGPUImageProcessedPath = "";
 
   private Thread visicamRPiGPUInactivityThread = null;
-  private volatile Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
+  private final Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
   private boolean visicamRPiGPUEnabled = false;
   private int visicamRPiGPUPid = -10;           // Strange default values for PIDs, but -1, 0 and 1, other positive numbers
   private int visicamPid = -10;                 // are all assigned, would return wrong results in checking if process runs
@@ -103,6 +102,7 @@ public class VisiCamServer extends NanoHTTPD
     // visicamRPiGPU integration start
     visicamRPiGPUInactivityThread = new Thread(new Runnable()
     {
+        @Override
         public void run()
         {
             try
@@ -568,6 +568,7 @@ public class VisiCamServer extends NanoHTTPD
   {
     Thread refreshHomographyThread = new Thread(new Runnable()
     {
+        @Override
         public void run()
         {
             try

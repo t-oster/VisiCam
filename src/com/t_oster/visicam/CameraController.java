@@ -38,10 +38,11 @@ import javax.imageio.ImageIO;
 public class CameraController 
 {
   private volatile CvMat homographyMatrix = null;
-  private volatile Boolean synchronizedCamera = false;                       // Dummy variable only used for camera access synchronization
+  private final Boolean synchronizedCamera = false;                          // Dummy variable only used for camera access synchronization
+  private final Boolean synchronizedMatrix = false;                          // Dummy variable only used for matrix access synchronization
 
   // visicamRPiGPU integration start
-  private volatile Boolean visicamRPiGPUFileLockSynchronization = false;     // Dummy variable only used for file lock synchronization
+  private final Boolean visicamRPiGPUFileLockSynchronization = false;        // Dummy variable only used for file lock synchronization
   // visicamRPiGPU integration end
 
   public InputStream toJpegStream(final BufferedImage img) throws IOException
@@ -193,7 +194,7 @@ public class CameraController
   {
     if (homographyMatrix != null)
     {
-        synchronized (homographyMatrix)
+        synchronized (synchronizedMatrix)
         {
             IplImage in = IplImage.createFrom(img);
             cvWarpPerspective(in, in, homographyMatrix);
@@ -265,7 +266,7 @@ public class CameraController
     // If it is null, no need to care for synchronized access at all
     if (homographyMatrix != null)
     {
-        synchronized (homographyMatrix)
+        synchronized (synchronizedMatrix)
         {
             homographyMatrix = localHomographyMatrix;
         }
@@ -281,7 +282,7 @@ public class CameraController
     // homographyMatrix must not be null for synchronized access
     if (homographyMatrix != null)
     {
-        synchronized (homographyMatrix)
+        synchronized (synchronizedMatrix)
         {
             return homographyMatrix;
         }
