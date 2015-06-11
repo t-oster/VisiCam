@@ -173,8 +173,10 @@ public class CameraController
       CvPoint3D32f point = new CvPoint3D32f(cvGetSeqElem(circles, 0));
       CvPoint center = cvPointFrom32f(new CvPoint2D32f(point.x(), point.y()));
       RelativePoint result = new RelativePoint((center.x()+abs.x)/(double)input.getWidth(), (center.y()+abs.y)/(double)input.getHeight());
+      cvReleaseMemStorage(storage);
       return result;
     }
+    cvReleaseMemStorage(storage);
     return null;
   }
   
