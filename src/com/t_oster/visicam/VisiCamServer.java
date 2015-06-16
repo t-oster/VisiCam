@@ -44,12 +44,12 @@ public class VisiCamServer extends NanoHTTPD
   private int outputWidth = 1680;
   private int outputHeight = 1050;
   private Integer refreshSeconds = 30;
-  private long lastSuccessfulRefreshTime = 0;
+  private long lastRefreshTime = 0;
   private long lastRequestTime = System.nanoTime();
   private boolean lockInsecureSettings = false;
 
   // visicamRPiGPU integration start
-  private Integer visicamRPiGPUInactivitySeconds = 600;
+  private Integer visicamRPiGPUInactivitySeconds = 300;
   private String visicamRPiGPUBinaryPath = "";
   private String visicamRPiGPUMatrixPath = "";
   private String visicamRPiGPUImageOriginalPath = "";
@@ -205,9 +205,9 @@ public class VisiCamServer extends NanoHTTPD
         outputHeight = 1050;
     }
 
-    if (refreshSeconds <= 0)
+    if (refreshSeconds < 10)
     {
-        refreshSeconds = 30;
+        refreshSeconds = 10;
     }
 
     // visicamRPiGPU integration start
@@ -221,9 +221,9 @@ public class VisiCamServer extends NanoHTTPD
 
     visicamRPiGPUInactivitySeconds = Integer.parseInt(parms.getProperty("visicamRPiGPUInactivitySeconds"));
 
-    if (visicamRPiGPUInactivitySeconds <= 0)
+    if (visicamRPiGPUInactivitySeconds <= refreshSeconds)
     {
-        visicamRPiGPUInactivitySeconds = 600;
+        visicamRPiGPUInactivitySeconds = refreshSeconds + 1;
     }
 
     visicamRPiGPUBinaryPath = parms.getProperty("visicamRPiGPUBinaryPath");
@@ -231,7 +231,7 @@ public class VisiCamServer extends NanoHTTPD
     visicamRPiGPUImageOriginalPath = parms.getProperty("visicamRPiGPUImageOriginalPath");
     visicamRPiGPUImageProcessedPath = parms.getProperty("visicamRPiGPUImageProcessedPath");
 
-    visicamRPiGPUEnabled = (visicamRPiGPUInactivitySeconds > 0 && !visicamRPiGPUBinaryPath.isEmpty() && !visicamRPiGPUMatrixPath.isEmpty() &&
+    visicamRPiGPUEnabled = (visicamRPiGPUInactivitySeconds > refreshSeconds && !visicamRPiGPUBinaryPath.isEmpty() && !visicamRPiGPUMatrixPath.isEmpty() &&
                             !visicamRPiGPUImageOriginalPath.isEmpty() && !visicamRPiGPUImageProcessedPath.isEmpty());
 
     // On startup no previous path is set, fallback to use current path if available, so current instances might be killed correctly
@@ -461,12 +461,12 @@ public class VisiCamServer extends NanoHTTPD
 
        // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
        // Or because application just started and homography matrix is not ready yet
-       if ((System.nanoTime() - lastSuccessfulRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
+       if ((System.nanoTime() - lastRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
        {
             // Update last refresh timer
             // If everything runs correctly, wait refreshSeconds for next run
-            // Will be reset to 0 on exception in thread to get an instant refresh on next request
-            updateLastRefreshTime();
+            // Will be reset on exception in thread to get a new refresh shortly after the failed refresh
+            updateLastRefreshTime(false);
 
             // visicamRPiGPU integration start
             if (visicamRPiGPUEnabled)
@@ -554,14 +554,18 @@ public class VisiCamServer extends NanoHTTPD
    }
   }
 
-  private synchronized void updateLastRefreshTime()
+  private synchronized void updateLastRefreshTime(boolean error)
   {
-    lastSuccessfulRefreshTime = System.nanoTime();
-  }
-
-  private synchronized void resetLastRefreshTime()
-  {
-    lastSuccessfulRefreshTime = 0;
+    if (error)
+    {
+      // Pause refreshes for 9 seconds after refresh failures
+      // Code works correctly because refreshSeconds must be at least 10 seconds
+      lastRefreshTime = System.nanoTime() - ((refreshSeconds - 9) * 1000000000L);
+    }
+    else
+    {
+      lastRefreshTime = System.nanoTime();
+    }
   }
 
   private void refreshHomography(boolean synchronous) throws InterruptedException
@@ -633,11 +637,11 @@ public class VisiCamServer extends NanoHTTPD
 
                 // Log message and set timer
                 VisiCam.log("Refreshed successfully...");
-                updateLastRefreshTime();
+                updateLastRefreshTime(false);
             }
             catch (Exception e)
             {
-                resetLastRefreshTime();
+                updateLastRefreshTime(true);
                 VisiCam.error(e.getMessage());
             }
         }
