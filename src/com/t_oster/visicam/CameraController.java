@@ -194,17 +194,19 @@ public class CameraController
   
   public BufferedImage applyHomography(BufferedImage img)
   {
-    if (homographyMatrix != null)
-    {
         synchronized (synchronizedMatrix)
         {
-            IplImage in = IplImage.createFrom(img);
-            cvWarpPerspective(in, in, homographyMatrix);
-            return in.getBufferedImage();
+            if (homographyMatrix != null)
+            {
+                IplImage in = IplImage.createFrom(img);
+                cvWarpPerspective(in, in, homographyMatrix);
+                return in.getBufferedImage();
+            }
+            else
+            {
+                return null;
+            }
         }
-    }
-
-    return null;
   }
 
   public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight, boolean visicamRPiGPUEnabled, String visicamRPiGPUMatrixPath) throws FileNotFoundException, IOException
@@ -276,6 +278,17 @@ public class CameraController
     else
     {
         homographyMatrix = localHomographyMatrix;
+    }
+  }
+  
+  public void setHomographyMatrixInvalid()
+  {
+    if (homographyMatrix != null)
+    {
+        synchronized (synchronizedMatrix)
+        {
+            homographyMatrix = null;
+        }
     }
   }
 

@@ -402,11 +402,37 @@ public class VisiCamServer extends NanoHTTPD
         return serveJpeg(cc.getDummyImage("html/error.jpg",txt));
       }
   }
-
-  // serve a HTTP 500 internal error with a plaintext message
-  // (a client like VisiCut or a browser can then display the message to the user)
-  public Response servePlaintextError(String errorText) {
-    return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, errorText);
+  
+    /**
+     * serve a HTTP 500 internal error with a plaintext message
+     * (a client like VisiCut or a browser can then display the message to the user)
+     * @param errorText error message
+     * @return Response object
+     */
+      public Response servePlaintextError(String errorText) {
+      return servePlaintextError(errorText, false);
+  }
+  
+    /**
+     * serve a HTTP 500 internal error with a plaintext message
+     * (a client like VisiCut or a browser can then display the message to the user)
+     * @param errorText Error Message
+     * @param temporaryError if true: Set HTTP 503 and Retry-After, so that VisiCut knows
+     *                       it should not show a warning message to the user,
+     *                       because the error is only temporary
+     *                       (e.g. marker not found).
+     * @return Response object
+     */
+    public Response servePlaintextError(String errorText, boolean temporaryError) {
+      String errorCode = HTTP_INTERNALERROR;
+      if (temporaryError) {
+          errorCode = "503 Service Unavailable";
+      }
+      Response response = new Response(errorCode, MIME_PLAINTEXT, errorText);
+      if (temporaryError) {
+        response.addHeader("Retry-After", "5");
+      }
+      return response;
   }
 
   @Override
@@ -539,6 +565,14 @@ public class VisiCamServer extends NanoHTTPD
           {
               throw new Exception("Image is null before applying homography.");
           }
+          if (cc.getHomographyMatrix() == null)
+          {
+              // If a marker could temporarily not be found,
+              // e.g. because the user's hand is in the way or the lasercutter
+              // lid not yet open, signal a special temporary error so that
+              // VisiCut does not show a text error message
+              return servePlaintextError("Could not find markers. Is the lasercutter open and your camera calibrated correctly?", true);
+          }
 
           // Homography matrix must be set at this point
           result = serveJpeg(cc.applyHomography(img));
@@ -643,6 +677,7 @@ public class VisiCamServer extends NanoHTTPD
             {
                 updateLastRefreshTime(true);
                 VisiCam.error(e.getMessage());
+                cc.setHomographyMatrixInvalid();
             }
         }
     });
