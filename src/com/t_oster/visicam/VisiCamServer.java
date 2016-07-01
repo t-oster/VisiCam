@@ -82,16 +82,21 @@ public class VisiCamServer extends NanoHTTPD
         try
         {
           Properties p = new Properties();
-          p.load(new FileInputStream(config));
-          this.loadProperties(p);
-          VisiCam.log("Successfully loaded "+config.getAbsolutePath());
+		  p.load(new FileInputStream(config.getAbsolutePath()));
+		  this.loadProperties(p);
+		  VisiCam.log("Successfully loaded "+config.getAbsolutePath());
         }
         catch (Exception e)
         {
-          VisiCam.log("Error loading "+config.getAbsolutePath());
+          VisiCam.log(e.toString());
+		  VisiCam.log("Error loading "+config.getAbsolutePath());
           VisiCam.log("Default settings will be used.");
         }
       }
+	  else
+	  {
+		VisiCam.log("No config file found. Default settings will be used.");
+	  }
       lastMarkerPositions = new RelativePoint[]{
         new RelativePoint(markerSearchfields[0].x + markerSearchfields[0].getWidth()/2, markerSearchfields[0].y + markerSearchfields[0].getHeight()/2),
         new RelativePoint(markerSearchfields[1].x + markerSearchfields[1].getWidth()/2, markerSearchfields[1].y + markerSearchfields[1].getHeight()/2),
@@ -219,7 +224,14 @@ public class VisiCamServer extends NanoHTTPD
                                                   !visicamRPiGPUImageOriginalPath.equals(parms.getProperty("visicamRPiGPUImageOriginalPath")) ||
                                                   !visicamRPiGPUImageProcessedPath.equals(parms.getProperty("visicamRPiGPUImageProcessedPath")));
 
-    visicamRPiGPUInactivitySeconds = Integer.parseInt(parms.getProperty("visicamRPiGPUInactivitySeconds"));
+    try
+	{
+		visicamRPiGPUInactivitySeconds = Integer.parseInt(parms.getProperty("visicamRPiGPUInactivitySeconds"));
+	}
+    catch (Exception e)
+    {
+		visicamRPiGPUInactivitySeconds = refreshSeconds + 1;
+	}
 
     if (visicamRPiGPUInactivitySeconds <= refreshSeconds)
     {
