@@ -1,16 +1,13 @@
 package com.t_oster.visicam;
 
+
 import org.bytedeco.javacv.FrameGrabber.Exception;
 import org.bytedeco.javacv.OpenCVFrameGrabber;
+import org.bytedeco.javacpp.opencv_imgproc;
+
 import static org.bytedeco.javacpp.opencv_calib3d.*;
 import static org.bytedeco.javacpp.opencv_core.*;
 import org.bytedeco.javacpp.opencv_core.CvMat;
-import org.bytedeco.javacpp.opencv_core.CvMemStorage;
-import org.bytedeco.javacpp.opencv_core.CvPoint;
-import org.bytedeco.javacpp.opencv_core.CvPoint2D32f;
-import org.bytedeco.javacpp.opencv_core.CvPoint3D32f;
-import org.bytedeco.javacpp.opencv_core.CvSeq;
-import org.bytedeco.javacpp.opencv_core.IplImage;
 import static org.bytedeco.javacpp.opencv_imgproc.*;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -30,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
+import org.bytedeco.javacpp.indexer.FloatRawIndexer;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.bytedeco.javacv.OpenCVFrameConverter;
@@ -49,17 +47,19 @@ public class CameraController
   // visicamRPiGPU integration end
 
   private final Java2DFrameConverter frameConverter = new Java2DFrameConverter();
-  private final OpenCVFrameConverter.ToIplImage iplImageConverter = new OpenCVFrameConverter.ToIplImage();
+  private final OpenCVFrameConverter.ToMat matConverter = new OpenCVFrameConverter.ToMat();
 
-  private IplImage toIplImage(BufferedImage b)
+
+  private Mat toMat(BufferedImage b)
   {
-      return iplImageConverter.convert(frameConverter.convert(b));
+      return matConverter.convert(frameConverter.convert(b));
   }
 
-  private BufferedImage toBufferedImage(IplImage i)
+  private BufferedImage toBufferedImage(Mat i)
   {
-      return frameConverter.convert(iplImageConverter.convert(i));
+      return frameConverter.convert(matConverter.convert(i));
   }
+  
 
 
   public InputStream toJpegStream(final BufferedImage img) throws IOException
@@ -169,31 +169,30 @@ public class CameraController
   public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)
   {
     Rectangle abs = roi.toAbsoluteRectangle(input.getWidth(), input.getHeight());
-    IplImage in = toIplImage(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
-    IplImage gray = IplImage.create(in.width(), in.height(), in.depth(), 1);
-    cvCvtColor(in, gray, CV_BGR2GRAY);
-    cvErode(gray, gray, null, 1);
-    cvErode(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    cvErode(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    CvMemStorage storage = cvCreateMemStorage(0);
+    Mat in = toMat(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
+    cvtColor(in, in, CV_BGR2GRAY);
+    Mat k = opencv_imgproc.getStructuringElement(opencv_imgproc.MORPH_RECT, new Size(2,2));
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
     double minDist = 10;
     double cannyThreshold = 50;
     double minVotes = 15;
     int minRad = 5;
     int maxRad = 25;
-    CvSeq circles = cvHoughCircles(gray, storage, CV_HOUGH_GRADIENT, 1, minDist, cannyThreshold, minVotes, minRad, maxRad);
-    if (circles.total() >= 1)
+    Mat circles = new Mat();
+    HoughCircles(in, circles, CV_HOUGH_GRADIENT, 1, minDist, cannyThreshold, minVotes, minRad, maxRad);
+    if (circles.cols() >= 1)
     {
-      CvPoint3D32f point = new CvPoint3D32f(cvGetSeqElem(circles, 0));
-      CvPoint center = cvPointFrom32f(new CvPoint2D32f(point.x(), point.y()));
-      RelativePoint result = new RelativePoint((center.x()+abs.x)/(double)input.getWidth(), (center.y()+abs.y)/(double)input.getHeight());
-      cvReleaseMemStorage(storage);
+        FloatRawIndexer i = circles.createIndexer();
+        double x = i.get(0,0);
+        double y = i.get(0,1);
+      RelativePoint result = new RelativePoint((x+abs.x)/(double)input.getWidth(), (y+abs.y)/(double)input.getHeight());
       return result;
     }
-    cvReleaseMemStorage(storage);
     return null;
   }
   
@@ -215,10 +214,9 @@ public class CameraController
         {
             if (homographyMatrix != null)
             {
-                Frame frame = frameConverter.convert(img);
-                IplImage in = iplImageConverter.convertToIplImage(frame);
-                cvWarpPerspective(in, in, homographyMatrix);
-                return frameConverter.convert(iplImageConverter.convert(in));
+                Mat in = toMat(img);
+                warpPerspective(in, in, cvarrToMat(homographyMatrix), in.size());
+                return toBufferedImage(in);
             }
             else
             {
