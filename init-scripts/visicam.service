@@ -1,0 +1,17 @@
+[Unit]
+Description=Camera service for VisiCut
+Documentation=https://github.com/t-oster/VisiCam
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=visicam
+Group=visicam
+WorkingDirectory=/opt/VisiCam/
+ExecStart=/usr/bin/java -jar dist/VisiCam.jar --nogui --port 9999
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
