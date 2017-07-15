@@ -1,17 +1,17 @@
 package com.t_oster.visicam;
 
-import com.googlecode.javacv.FrameGrabber.Exception;
-import com.googlecode.javacv.OpenCVFrameGrabber;
-import static com.googlecode.javacv.cpp.opencv_calib3d.*;
-import static com.googlecode.javacv.cpp.opencv_core.*;
-import com.googlecode.javacv.cpp.opencv_core.CvMat;
-import com.googlecode.javacv.cpp.opencv_core.CvMemStorage;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint2D32f;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint3D32f;
-import com.googlecode.javacv.cpp.opencv_core.CvSeq;
-import com.googlecode.javacv.cpp.opencv_core.IplImage;
-import static com.googlecode.javacv.cpp.opencv_imgproc.*;
+import org.bytedeco.javacv.FrameGrabber.Exception;
+import org.bytedeco.javacv.OpenCVFrameGrabber;
+import static org.bytedeco.javacpp.opencv_calib3d.*;
+import static org.bytedeco.javacpp.opencv_core.*;
+import org.bytedeco.javacpp.opencv_core.CvMat;
+import org.bytedeco.javacpp.opencv_core.CvMemStorage;
+import org.bytedeco.javacpp.opencv_core.CvPoint;
+import org.bytedeco.javacpp.opencv_core.CvPoint2D32f;
+import org.bytedeco.javacpp.opencv_core.CvPoint3D32f;
+import org.bytedeco.javacpp.opencv_core.CvSeq;
+import org.bytedeco.javacpp.opencv_core.IplImage;
+import static org.bytedeco.javacpp.opencv_imgproc.*;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -30,12 +30,15 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.Java2DFrameConverter;
+import org.bytedeco.javacv.OpenCVFrameConverter;
 
 /**
  *
  * @author Thomas Oster <thomas.oster@rwth-aachen.de>
  */
-public class CameraController 
+public class CameraController
 {
   private volatile CvMat homographyMatrix = null;
   private final Boolean synchronizedCamera = false;                          // Dummy variable only used for camera access synchronization
@@ -44,6 +47,20 @@ public class CameraController
   // visicamRPiGPU integration start
   private final Boolean visicamRPiGPUFileLockSynchronization = false;        // Dummy variable only used for file lock synchronization
   // visicamRPiGPU integration end
+
+  private final Java2DFrameConverter frameConverter = new Java2DFrameConverter();
+  private final OpenCVFrameConverter.ToIplImage iplImageConverter = new OpenCVFrameConverter.ToIplImage();
+
+  private IplImage toIplImage(BufferedImage b)
+  {
+      return iplImageConverter.convert(frameConverter.convert(b));
+  }
+
+  private BufferedImage toBufferedImage(IplImage i)
+  {
+      return frameConverter.convert(iplImageConverter.convert(i));
+  }
+
 
   public InputStream toJpegStream(final BufferedImage img) throws IOException
   {
@@ -103,8 +120,8 @@ public class CameraController
             grabber.setImageHeight(height);
             grabber.setImageWidth(width);
             grabber.start();
-            IplImage img = grabber.grab();
-            result = img.getBufferedImage();
+            Frame img = grabber.grab();
+            result = frameConverter.convert(img);
             grabber.stop();
         }
       }
@@ -152,7 +169,7 @@ public class CameraController
   public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)
   {
     Rectangle abs = roi.toAbsoluteRectangle(input.getWidth(), input.getHeight());
-    IplImage in = IplImage.createFrom(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
+    IplImage in = toIplImage(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
     IplImage gray = IplImage.create(in.width(), in.height(), in.depth(), 1);
     cvCvtColor(in, gray, CV_BGR2GRAY);
     cvErode(gray, gray, null, 1);
@@ -198,9 +215,10 @@ public class CameraController
         {
             if (homographyMatrix != null)
             {
-                IplImage in = IplImage.createFrom(img);
+                Frame frame = frameConverter.convert(img);
+                IplImage in = iplImageConverter.convertToIplImage(frame);
                 cvWarpPerspective(in, in, homographyMatrix);
-                return in.getBufferedImage();
+                return frameConverter.convert(iplImageConverter.convert(in));
             }
             else
             {
@@ -231,7 +249,7 @@ public class CameraController
     dst.put(3, 0, 1, img.getHeight());
 
     CvMat localHomographyMatrix = CvMat.create(3, 3);
-    cvFindHomography(src, dst, localHomographyMatrix, CV_RANSAC, 1, null);
+    cvFindHomography(src, dst, localHomographyMatrix); // TODO important parameters (CV_RANSAC) were removed for testing
 
     // Write matrix values to file for visicamRPiGPU if needed
     if (visicamRPiGPUEnabled)

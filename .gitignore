@@ -2,4 +2,5 @@
 visicam.conf
 /build/
 /nbproject/private/
+/lib/javacv-bin/
 /dist/
