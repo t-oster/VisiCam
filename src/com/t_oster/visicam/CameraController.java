@@ -1,17 +1,14 @@
 package com.t_oster.visicam;
 
-import com.googlecode.javacv.FrameGrabber.Exception;
-import com.googlecode.javacv.OpenCVFrameGrabber;
-import static com.googlecode.javacv.cpp.opencv_calib3d.*;
-import static com.googlecode.javacv.cpp.opencv_core.*;
-import com.googlecode.javacv.cpp.opencv_core.CvMat;
-import com.googlecode.javacv.cpp.opencv_core.CvMemStorage;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint2D32f;
-import com.googlecode.javacv.cpp.opencv_core.CvPoint3D32f;
-import com.googlecode.javacv.cpp.opencv_core.CvSeq;
-import com.googlecode.javacv.cpp.opencv_core.IplImage;
-import static com.googlecode.javacv.cpp.opencv_imgproc.*;
+
+import org.bytedeco.javacv.FrameGrabber.Exception;
+import org.bytedeco.javacv.OpenCVFrameGrabber;
+import org.bytedeco.javacpp.opencv_imgproc;
+
+import static org.bytedeco.javacpp.opencv_calib3d.*;
+import static org.bytedeco.javacpp.opencv_core.*;
+import org.bytedeco.javacpp.opencv_core.CvMat;
+import static org.bytedeco.javacpp.opencv_imgproc.*;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -30,12 +27,16 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
+import org.bytedeco.javacpp.indexer.FloatRawIndexer;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.Java2DFrameConverter;
+import org.bytedeco.javacv.OpenCVFrameConverter;
 
 /**
  *
  * @author Thomas Oster <thomas.oster@rwth-aachen.de>
  */
-public class CameraController 
+public class CameraController
 {
   private volatile CvMat homographyMatrix = null;
   private final Boolean synchronizedCamera = false;                          // Dummy variable only used for camera access synchronization
@@ -44,6 +45,22 @@ public class CameraController
   // visicamRPiGPU integration start
   private final Boolean visicamRPiGPUFileLockSynchronization = false;        // Dummy variable only used for file lock synchronization
   // visicamRPiGPU integration end
+
+  private final Java2DFrameConverter frameConverter = new Java2DFrameConverter();
+  private final OpenCVFrameConverter.ToMat matConverter = new OpenCVFrameConverter.ToMat();
+
+
+  private Mat toMat(BufferedImage b)
+  {
+      return matConverter.convert(frameConverter.convert(b));
+  }
+
+  private BufferedImage toBufferedImage(Mat i)
+  {
+      return frameConverter.convert(matConverter.convert(i));
+  }
+  
+
 
   public InputStream toJpegStream(final BufferedImage img) throws IOException
   {
@@ -103,8 +120,8 @@ public class CameraController
             grabber.setImageHeight(height);
             grabber.setImageWidth(width);
             grabber.start();
-            IplImage img = grabber.grab();
-            result = img.getBufferedImage();
+            Frame img = grabber.grab();
+            result = frameConverter.convert(img);
             grabber.stop();
         }
       }
@@ -152,31 +169,30 @@ public class CameraController
   public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)
   {
     Rectangle abs = roi.toAbsoluteRectangle(input.getWidth(), input.getHeight());
-    IplImage in = IplImage.createFrom(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
-    IplImage gray = IplImage.create(in.width(), in.height(), in.depth(), 1);
-    cvCvtColor(in, gray, CV_BGR2GRAY);
-    cvErode(gray, gray, null, 1);
-    cvErode(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    cvErode(gray, gray, null, 1);
-    cvDilate(gray, gray, null, 1);
-    CvMemStorage storage = cvCreateMemStorage(0);
+    Mat in = toMat(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
+    cvtColor(in, in, CV_BGR2GRAY);
+    Mat k = opencv_imgproc.getStructuringElement(opencv_imgproc.MORPH_RECT, new Size(2,2));
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
+    opencv_imgproc.erode(in, in, k);
+    opencv_imgproc.dilate(in, in, k);
     double minDist = 10;
     double cannyThreshold = 50;
     double minVotes = 15;
     int minRad = 5;
     int maxRad = 25;
-    CvSeq circles = cvHoughCircles(gray, storage, CV_HOUGH_GRADIENT, 1, minDist, cannyThreshold, minVotes, minRad, maxRad);
-    if (circles.total() >= 1)
+    Mat circles = new Mat();
+    HoughCircles(in, circles, CV_HOUGH_GRADIENT, 1, minDist, cannyThreshold, minVotes, minRad, maxRad);
+    if (circles.cols() >= 1)
     {
-      CvPoint3D32f point = new CvPoint3D32f(cvGetSeqElem(circles, 0));
-      CvPoint center = cvPointFrom32f(new CvPoint2D32f(point.x(), point.y()));
-      RelativePoint result = new RelativePoint((center.x()+abs.x)/(double)input.getWidth(), (center.y()+abs.y)/(double)input.getHeight());
-      cvReleaseMemStorage(storage);
+        FloatRawIndexer i = circles.createIndexer();
+        double x = i.get(0,0);
+        double y = i.get(0,1);
+      RelativePoint result = new RelativePoint((x+abs.x)/(double)input.getWidth(), (y+abs.y)/(double)input.getHeight());
       return result;
     }
-    cvReleaseMemStorage(storage);
     return null;
   }
   
@@ -198,9 +214,9 @@ public class CameraController
         {
             if (homographyMatrix != null)
             {
-                IplImage in = IplImage.createFrom(img);
-                cvWarpPerspective(in, in, homographyMatrix);
-                return in.getBufferedImage();
+                Mat in = toMat(img);
+                warpPerspective(in, in, cvarrToMat(homographyMatrix), in.size());
+                return toBufferedImage(in);
             }
             else
             {
@@ -231,7 +247,7 @@ public class CameraController
     dst.put(3, 0, 1, img.getHeight());
 
     CvMat localHomographyMatrix = CvMat.create(3, 3);
-    cvFindHomography(src, dst, localHomographyMatrix, CV_RANSAC, 1, null);
+    cvFindHomography(src, dst, localHomographyMatrix); // TODO important parameters (CV_RANSAC) were removed for testing
 
     // Write matrix values to file for visicamRPiGPU if needed
     if (visicamRPiGPUEnabled)
