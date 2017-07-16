@@ -13,5 +13,7 @@ USER visicam
 # fetch javaCV if it wasn't downloaded yet
 RUN test -d lib/javacv-bin/ || ./lib/fetch-javacv.sh
 RUN ant clean && ant
+# copy test config if no config exists
+RUN test -f visicam.conf || cp test/visicam.conf .
 EXPOSE 8080
 CMD ant run
