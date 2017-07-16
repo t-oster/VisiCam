@@ -1,0 +1,3 @@
+*.zip
+# .git currently not docker-ignored so that we can do 'git clean' automatically
+dist/

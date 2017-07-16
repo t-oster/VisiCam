@@ -1,5 +1,5 @@
 *.zip
-visicam.conf
+#visicam.conf
 /build/
 /nbproject/private/
 /dist/
