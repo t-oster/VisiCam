@@ -11,7 +11,9 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -27,6 +29,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -47,6 +51,10 @@ public class VisiCamServer extends NanoHTTPD
   private long lastRefreshTime = 0;
   private long lastRequestTime = System.nanoTime();
   private boolean lockInsecureSettings = false;
+  
+  
+  private Thread refreshHomographyThread;
+  private final Object lockRefreshHomography = new Object();
 
   // visicamRPiGPU integration start
   private Integer visicamRPiGPUInactivitySeconds = 300;
@@ -71,7 +79,18 @@ public class VisiCamServer extends NanoHTTPD
     new RelativeRectangle(0.8,0.8,0.2,0.2)
   };
   
-  private RelativePoint[] lastMarkerPositions = null;
+    CachingAsynchronousHandler<ResponseCache, Response> transformedImageResponseCache = new CachingAsynchronousHandler<ResponseCache, Response>(new CachingAsynchronousHandler.Computation<ResponseCache, Response>() {
+        @Override
+        public ResponseCache computeCacheEntry() {
+            return new ResponseCache(serveTransformedImage());
+        }
+
+        @Override
+        public Response getCachedResult(ResponseCache cache) {
+            return cache.getResponse();
+        }
+    });
+
   
   public VisiCamServer(int port, CameraController cc) throws IOException
   {
@@ -97,12 +116,6 @@ public class VisiCamServer extends NanoHTTPD
 	  {
 		VisiCam.log("No config file found. Default settings will be used.");
 	  }
-      lastMarkerPositions = new RelativePoint[]{
-        new RelativePoint(markerSearchfields[0].x + markerSearchfields[0].getWidth()/2, markerSearchfields[0].y + markerSearchfields[0].getHeight()/2),
-        new RelativePoint(markerSearchfields[1].x + markerSearchfields[1].getWidth()/2, markerSearchfields[1].y + markerSearchfields[1].getHeight()/2),
-        new RelativePoint(markerSearchfields[2].x + markerSearchfields[2].getWidth()/2, markerSearchfields[2].y + markerSearchfields[2].getHeight()/2),
-        new RelativePoint(markerSearchfields[3].x + markerSearchfields[3].getWidth()/2, markerSearchfields[3].y + markerSearchfields[3].getHeight()/2)
-      };
 
     // visicamRPiGPU integration start
     visicamRPiGPUInactivityThread = new Thread(new Runnable()
@@ -381,7 +394,7 @@ public class VisiCamServer extends NanoHTTPD
         }
         // visicamRPiGPU integration end
 
-        BufferedImage img=cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
+        BufferedImage img=cameraImageCache.getFreshResultBlocking();
         RelativePoint[] currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
         Graphics2D g=img.createGraphics();
           for (int i = 0; i < currentMarkerPositions.length; i++)
@@ -459,7 +472,10 @@ public class VisiCamServer extends NanoHTTPD
         }
         else if(uri.startsWith("/image"))
         {
-          return serveTransformedImage();
+          // return serveTransformedImage().
+          // If another request is currently being processed, wait for it to
+          // finish and return its response from the cache.
+          return transformedImageResponseCache.getFreshResultBlocking();
         }
         else if ("/settings".equals(uri))
         {
@@ -494,36 +510,6 @@ public class VisiCamServer extends NanoHTTPD
             return null;
        }
 
-       // Set request timer
-       lastRequestTime = System.nanoTime();
-
-       // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
-       // Or because application just started and homography matrix is not ready yet
-       if ((System.nanoTime() - lastRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
-       {
-            // Update last refresh timer
-            // If everything runs correctly, wait refreshSeconds for next run
-            // Will be reset on exception in thread to get a new refresh shortly after the failed refresh
-            updateLastRefreshTime(false);
-
-            // visicamRPiGPU integration start
-            if (visicamRPiGPUEnabled)
-            {
-                // Reload current settings, ensure that visicamRPiGPU process is running correctly
-                if (config.exists())
-                {
-                    Properties p = new Properties();
-                    FileInputStream inputStream = new FileInputStream(config);
-                    p.load(inputStream);
-                    inputStream.close();
-                    loadProperties(p);
-                }
-            }
-            // visicamRPiGPU integration end
-
-            // If this is true, it will run synchronously, otherwise asynchronously
-            refreshHomography((cc.getHomographyMatrix() == null));
-       }
 
        // Prepare response
        Response result = null;
@@ -531,6 +517,39 @@ public class VisiCamServer extends NanoHTTPD
        // visicamRPiGPU integration start
        if (visicamRPiGPUEnabled)
        {
+            // Set request timer
+            lastRequestTime = System.nanoTime();
+
+            // Check if need to refresh homography matrix because refreshSeconds expired since last refresh time
+            // Or because application just started and homography matrix is not ready yet
+            // on non-raspi systems, always update the matrix
+            if ((System.nanoTime() - lastRefreshTime) >= (refreshSeconds * 1000000000L) || cc.getHomographyMatrix() == null)
+            {
+                 // Update last refresh timer
+                 // If everything runs correctly, wait refreshSeconds for next run
+                 // Will be reset on exception in thread to get a new refresh shortly after the failed refresh
+                 updateLastRefreshTime(false);
+
+                 // visicamRPiGPU integration start
+                 if (visicamRPiGPUEnabled)
+                 {
+                     // Reload current settings, ensure that visicamRPiGPU process is running correctly
+                     // WHY does that need to be here????? other parts use the config too!
+                     if (config.exists())
+                     {
+                         Properties p = new Properties();
+                         FileInputStream inputStream = new FileInputStream(config);
+                         p.load(inputStream);
+                         inputStream.close();
+                         loadProperties(p);
+                     }
+                 }
+                 // visicamRPiGPU integration end
+
+                 // If this is true, it will run synchronously, otherwise asynchronously
+                 refreshHomography(cc.getHomographyMatrix() == null, null);
+            }
+
           // Create file object
           File processedImageFile = new File(visicamRPiGPUImageProcessedPath);
 
@@ -570,7 +589,11 @@ public class VisiCamServer extends NanoHTTPD
        // visicamRPiGPU integration end
        else // Default behaviour
        {
-          BufferedImage img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
+          BufferedImage img = cameraImageCache.getFreshResultBlocking();
+          refreshHomography(true, img);
+          
+          // if refreshHomography needed to fetch a new image, get it
+          img = cameraImageCache.getCachedResult();
 
           // Check if img is null, exception
           if (img == null)
@@ -614,93 +637,115 @@ public class VisiCamServer extends NanoHTTPD
     }
   }
 
-  private void refreshHomography(boolean synchronous) throws InterruptedException
-  {
-    Thread refreshHomographyThread = new Thread(new Runnable()
-    {
+    CachingAsynchronousHandler<BufferedImage, BufferedImage> cameraImageCache = new CachingAsynchronousHandler<BufferedImage, BufferedImage>(new CachingAsynchronousHandler.Computation<BufferedImage, BufferedImage>() {
         @Override
-        public void run()
-        {
-            try
-            {
-                // Log message and variables
-                VisiCam.log("Refresh started...");
-                BufferedImage img = null;
-                RelativePoint[] currentMarkerPositions = null;
-
-                // Loop for marker detection
-                for (int retries = 0; retries < 5; retries++)
-                {
-                  // VisiCam.log("Getting Snapshot...");
-                  img = cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
-
-                  // If too much retries needed, throw exception
-                  if (retries >= 4)
-                  {
-                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
-                  }
-
-                  // Check if img is not null, otherwise retry
-                  if (img == null)
-                  {
-                      VisiCam.log("Image is null - retrying up to 4x.");
-                      continue;
-                  }
-
-                  // VisiCam.log("Finding markers...");
-                  currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
-
-                  // Check if all markers were found
-                  boolean allMarkersFound = true;
-                  for (int i = 0; i < currentMarkerPositions.length; i++)
-                  {
-                    if (currentMarkerPositions[i] == null)
-                    {
-                      allMarkersFound = false;
-                      String[] positionNames = {"top-left","top-right","bottom-left","bottom-right"};
-                      String markerErrorMsg = "Cannot find marker " + positionNames[i];
-                      VisiCam.log(markerErrorMsg + " - retrying up to 4x.");
-                    }
-                  }
-
-                  // If too much retries needed, throw exception
-                  if (retries >= 4)
-                  {
-                      throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
-                  }
-
-                  // If all markers were found, stop loop, set timestamp. Otherwise continue trying.
-                  if (allMarkersFound)
-                  {
-                      // VisiCam.log("Markers detected successfully...");
-                      break;
-                  }
-                }
-
-                // Update homography matrix with new marker positions
-                // VisiCam.log("Updating homography matrix...");
-                cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
-
-                // Log message and set timer
-                VisiCam.log("Refreshed successfully...");
-                updateLastRefreshTime(false);
-            }
-            catch (Exception e)
-            {
-                updateLastRefreshTime(true);
-                VisiCam.error(e.getMessage());
-                cc.setHomographyMatrixInvalid();
+        public BufferedImage computeCacheEntry() {
+            try {
+                return cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
+            } catch (Exception e) {
+                VisiCam.error("Cannot take picture: " + e.getClass().toString() + " " + e.getMessage());
+                return null;
             }
         }
+
+        @Override
+        public BufferedImage getCachedResult(BufferedImage cache) {
+            // need to copy BufferedImage because it is sometimes used for drawing onto
+            ColorModel cm = cache.getColorModel();
+            BufferedImage copy = new BufferedImage(cm, cache.copyData(null), cm.isAlphaPremultiplied(), null);
+            return copy;
+        }
     });
+    
+    /**
+     * trigger an update of the homography matrix
+     * retry up to 4x, takes a new image every time
+     * @param synchronous block until the update has completed
+     * @param img a current image for the first try, may be null
+     * @throws InterruptedException 
+     */
+    private void refreshHomography(boolean synchronous, BufferedImage img) throws InterruptedException {
+        final BufferedImage firstImage = img;
+        // start recalculation of the homography matrix if it isn't running yet
+        synchronized (lockRefreshHomography) {
+            if (refreshHomographyThread == null || !refreshHomographyThread.isAlive()) {
+                refreshHomographyThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            BufferedImage img = firstImage;
+                            // Log message and variables
+                            VisiCam.log("Refresh started...");
+                            RelativePoint[] currentMarkerPositions = null;
 
-    // Start thread
-    refreshHomographyThread.start();
+                            // Loop for marker detection
+                            for (int retries = 0; retries < 5; retries++) {
+                                // for the first run, use the given image,
+                                // on retries take a new one
+                                if (img == null || retries >= 1) {
+                                    img = cameraImageCache.getFreshResultBlocking();
+                                }
 
-    // Wait for thread to end if synchronous
-    if (synchronous)
-    {
-        refreshHomographyThread.join();
+                                // If too many retries needed, throw exception
+                                if (retries >= 4) {
+                                    throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                                }
+
+                                // Check if img is not null, otherwise retry
+                                if (img == null) {
+                                    VisiCam.log("Image is null - retrying up to 4x.");
+                                    continue;
+                                }
+
+                                // VisiCam.log("Finding markers...");
+                                currentMarkerPositions = cc.findMarkers(img, markerSearchfields);
+
+                                // Check if all markers were found
+                                boolean allMarkersFound = true;
+                                for (int i = 0; i < currentMarkerPositions.length; i++) {
+                                    if (currentMarkerPositions[i] == null) {
+                                        allMarkersFound = false;
+                                        String[] positionNames = {"top-left", "top-right", "bottom-left", "bottom-right"};
+                                        String markerErrorMsg = "Cannot find marker " + positionNames[i];
+                                        VisiCam.log(markerErrorMsg + " - retrying up to 4x.");
+                                    }
+                                }
+
+                                // If too much retries needed, throw exception
+                                if (retries >= 4) {
+                                    throw new Exception("Give up refreshing, is the lasercutter open and the camera configured correctly?"); // TODO I18N for error messages, but how?
+                                }
+
+                                // If all markers were found, stop loop, set timestamp. Otherwise continue trying.
+                                if (allMarkersFound) {
+                                    // VisiCam.log("Markers detected successfully...");
+                                    break;
+                                }
+                            }
+
+                            // Update homography matrix with new marker positions
+                            // VisiCam.log("Updating homography matrix...");
+                            cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
+
+                            // Log message and set timer
+                            VisiCam.log("Refreshed successfully...");
+                            updateLastRefreshTime(false);
+                        } catch (Exception e) {
+                            updateLastRefreshTime(true);
+                            VisiCam.error(e.getMessage());
+                            cc.setHomographyMatrixInvalid();
+                        }
+                    }
+                });
+
+                // Start thread
+                refreshHomographyThread.start();
+            }
+        }
+
+        // Wait for thread to end if synchronous
+        if (synchronous) {
+            refreshHomographyThread.join();
+        }
     }
-  }
 }
