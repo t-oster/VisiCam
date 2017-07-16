@@ -2,7 +2,8 @@ FROM ubuntu:16.04
 RUN apt-get update
 RUN apt-get -y -q --no-install-recommends install openjdk-8-jdk ant libopencv2.4
 RUN apt-get -y -q --no-install-recommends install curl unzip
-RUN adduser --disabled-password visicam
+# RUN apt-get -y remove libopencv2.4
+RUN adduser --no-gecos --disabled-password visicam
 ADD . /home/visicam
 RUN chown -R visicam /home/visicam
 WORKDIR /home/visicam
