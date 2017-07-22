@@ -1,0 +1,13 @@
+sudo: required
+
+dist:
+ - trusty
+
+services:
+  - docker
+
+script:
+- docker build -t visicam .
+- docker run --name=visicam-container -d -p 127.0.0.1:8080:8080 visicam 
+- sleep 20
+- ./test/testclient.sh || { docker logs visicam-container; exit 1; }

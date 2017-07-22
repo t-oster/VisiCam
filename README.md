@@ -5,8 +5,9 @@ A Java application, that turns a webcam into a VisiCut compatible network camera
 
 Compile and Run
 ===============
-1. Make sure you have apache-ant, java jdk >=6 and openCv installed
-2. run "ant jar" on the command line
+0. download JavaCV: On Linux, simply run ./lib/fetch-javacv.sh on the command line. On Windows, read the instructions in that file (Download and unpack ZIP).
+1. Make sure you have apache-ant, java jdk >=6 and openCv installed (see below for OS-specific instructions)
+2. run "ant" on the command line
 3. run java -jar dist/VisiCam.jar on the Command Line or double click in finder/explorer
 
 Running on the Raspberry Pi
@@ -15,6 +16,8 @@ If you use it on ARM, you need to replace the javacv.jar in the dist/lib folder
 with the javacv.jar from the lib/javacv-pi folder.
 It works on ArchLinux (opencv can be installed through pacman). But
 is VERY SLOW. Any help is appreciated.
+
+TODO: currently broken?
 
 Running on Windows
 ==================
@@ -29,8 +32,9 @@ Running on Windows
 Running on Ubuntu
 =================
 
-sudo apt-get install libopencv2.4-java # TODO add java
-TODO
+Install the required dependencies with: `sudo apt-get install openjdk-8-jdk ant libopencv2.4`
+
+Read the Dockerfile for a more up-to-date list of all commands.
 
 Usage
 =====

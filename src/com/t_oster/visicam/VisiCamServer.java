@@ -5,7 +5,7 @@
 package com.t_oster.visicam;
 
 import com.google.gson.Gson;
-import com.googlecode.javacv.FrameGrabber;
+import org.bytedeco.javacv.FrameGrabber;
 import gr.ktogias.NanoHTTPD;
 import java.awt.BasicStroke;
 import java.awt.Color;
