@@ -368,7 +368,9 @@ public class VisiCamServer extends NanoHTTPD
   
   private Response serveJpeg(BufferedImage img) throws IOException
   {
-    return new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
+      Response response = new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
+      response.addHeader("Cache-control", "no-cache");
+      return response;
   }
   
   // serve the raw input image with green X at the marker locations and red rectangles in the searchfields
