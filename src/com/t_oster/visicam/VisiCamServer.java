@@ -86,7 +86,7 @@ public class VisiCamServer extends NanoHTTPD
         }
 
         @Override
-        public Response getCachedResult(ResponseCache cache) {
+        public Response getResultFromCacheEntry(ResponseCache cache) {
             return cache.getResponse();
         }
     });
@@ -368,7 +368,9 @@ public class VisiCamServer extends NanoHTTPD
   
   private Response serveJpeg(BufferedImage img) throws IOException
   {
-    return new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
+      Response response = new Response(HTTP_OK, "image/jpg", cc.toJpegStream(img));
+      response.addHeader("Cache-control", "no-cache");
+      return response;
   }
   
   // serve the raw input image with green X at the marker locations and red rectangles in the searchfields
@@ -639,17 +641,17 @@ public class VisiCamServer extends NanoHTTPD
 
     CachingAsynchronousHandler<BufferedImage, BufferedImage> cameraImageCache = new CachingAsynchronousHandler<BufferedImage, BufferedImage>(new CachingAsynchronousHandler.Computation<BufferedImage, BufferedImage>() {
         @Override
-        public BufferedImage computeCacheEntry() {
+        public BufferedImage computeCacheEntry() throws Exception {
             try {
                 return cc.takeSnapshot(cameraIndex, inputWidth, inputHeight, captureCommand, captureResult, visicamRPiGPUEnabled, visicamRPiGPUImageOriginalPath);
             } catch (Exception e) {
                 VisiCam.error("Cannot take picture: " + e.getClass().toString() + " " + e.getMessage());
-                return null;
+                throw e;
             }
         }
 
         @Override
-        public BufferedImage getCachedResult(BufferedImage cache) {
+        public BufferedImage getResultFromCacheEntry(BufferedImage cache) {
             // need to copy BufferedImage because it is sometimes used for drawing onto
             ColorModel cm = cache.getColorModel();
             BufferedImage copy = new BufferedImage(cm, cache.copyData(null), cm.isAlphaPremultiplied(), null);

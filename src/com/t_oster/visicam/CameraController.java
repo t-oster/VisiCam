@@ -106,6 +106,9 @@ public class CameraController
             IplImage img = grabber.grab();
             result = img.getBufferedImage();
             grabber.stop();
+            if (result == null) {
+              throw new Exception("Grabbing image failed (result is null). Something is very wrong with your camera.");
+            }
         }
       }
       else
@@ -123,13 +126,23 @@ public class CameraController
               errors += ""+(char)b;
             }
             pr.waitFor();
-            if (pr.exitValue() != 0 && !"".equals(errors))
+            if (pr.exitValue() != 0)
             {
-              throw new Exception(errors);
+              String errorMessage = "Command failed (exit " + pr.exitValue();
+              if ("".equals(errors)) {
+                  errorMessage += ", no output on stderr)";
+              } else {
+                  errorMessage += "): " + errors;
+              }
+              throw new Exception(errorMessage);
             }
             result = ImageIO.read(new File(path));
+            if (result == null) {
+              throw new Exception("Fetching image failed: empty output file '" + path + "'");
+            }
         }
     }
+
   return result;
   }
 
