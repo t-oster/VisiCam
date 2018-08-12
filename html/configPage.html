@@ -9,15 +9,17 @@
     <script type="text/javascript" src="lib/jquery.imgareaselect-0.9.9/scripts/jquery.imgareaselect.pack.js"></script>
   </head>
   <body>
-    <img style="max-width: 800px;" src="../rawimage" id="capture"/>
+    <!-- This notice appears when the capture neither succeeds nor fails, but just hangs. This may happen with some broken webcam drivers. -->
+    <p id="capture-pending" style="font-weight:bold; color:rgb(255, 93, 0);">Capturing the image... if this takes very long, try another camera index, and then possibly restart VisiCam and reload the page.</p>
+    <img style="max-width: 800px;" id="capture"/>
     <fieldset id="settings">
       <legend>VisiCam Settings:</legend>
-      <p><label for="cameraIndex">CameraIndex:</label><input id="cameraIndex" name="cameraIndex" type="number"/></p>
-      <p><label for="inputWidth">InputWidth:</label><input id="inputWidth" name="inputWidth" type="number"/></p>
-      <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number"/></p>
-      <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number"/></p>
-      <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number"/></p>
-      <p><label for="refreshSeconds">RefreshSeconds:</label><input id="refreshSeconds" name="refreshSeconds" type="number"/></p>
+      <p><label for="cameraIndex">CameraIndex:</label><input id="cameraIndex" name="cameraIndex" type="number" value="0"/></p>
+      <p><label for="inputWidth">InputWidth:</label><input id="inputWidth" name="inputWidth" type="number"  value="640"/></p>
+      <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number" value="480"/></p>
+      <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number" value="640"/></p>
+      <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number" value="480"/></p>
+      <p><label for="refreshSeconds">RefreshSeconds:</label><input id="refreshSeconds" name="refreshSeconds" type="number" value="1"/></p>
       <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
       <hr>
       <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
@@ -118,6 +120,17 @@
 
       updateExtendedOptionsDisplay(false);
       selectMarker(0);
+      d = new Date()
+      $("img#capture").attr("src", "../rawimage");
+      $("img#capture").load(function(){
+        $("#capture-pending").remove();
+         width = $("img#capture").width();
+         height = $("img#capture").height();
+         selectMarker(0);
+      }).error(function(){
+         $("#capture-pending").remove();
+         alert("The image could not be loaded. Maybe select another cameraIndex?");
+      })
     }
 
     function onChangeCustomCapture()
@@ -199,18 +212,10 @@
       settings.visicamRPiGPUImageProcessedPath = $("#visicamRPiGPUEnabled").is(":checked") ? $("#visicamRPiGPUImageProcessedPath").val() : "";
       // visicamRPiGPU integration end
 
-      $.post("../settings", settings, function(){alert("Settings saved")});
+      $.post("../settings", settings, function(){alert("Settings saved"); location.reload();});
     }
     $(document).ready(function () {
-       
-       $("img#capture").load(function(){
-         width = $("img#capture").width();
-         height = $("img#capture").height();
-         $.get("../settings", null, loadSettings, "json");
-       }).error(function(){
-         $.get("../settings", null, loadSettings, "json");
-         alert("The image could not be loaded. Maybe select another cameraIndex?");
-       });
+       $.get("../settings", null, loadSettings, "json");
        $("#marker").change(function(){
          selectMarker($("#marker").val());
        });
