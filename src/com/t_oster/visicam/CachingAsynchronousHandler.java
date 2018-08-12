@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Max Gaukler <development@maxgaukler.de>
+ * Copyright (c) 2015-2018 Max Gaukler <development@maxgaukler.de>
  */
 package com.t_oster.visicam;
 
@@ -11,12 +11,13 @@ import java.util.logging.Logger;
  *
  * @param <CacheType> datatype for internal cache (result of computation)
  * @param <ResultType> return datatype for getFreshResultBlocking() and
- * getCachedResult()
+ *                     getResultFromCacheEntry()
  */
 public class CachingAsynchronousHandler<CacheType, ResultType> {
     final Object lockThread;
     final Object lockCache;
     CacheType cache;
+    Exception cachedException;
     Thread thread;
     Computation<CacheType, ResultType> computation;
 
@@ -27,6 +28,7 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
         this.lockThread = new Object();
         this.lockCache = new Object();
         this.cache = null;
+        this.cachedException = null;
         this.thread = null;
         this.computation = computeCacheEntry;
     }
@@ -45,8 +47,10 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
          * compute cache entry (usually time-intensive)
          *
          * @return result
+         * @throws Exception . Any thrown exceptions will be "cached": they are
+         *         caught here and rethrown when the cache result is requested.
          */
-        abstract public CacheType computeCacheEntry();
+        abstract public CacheType computeCacheEntry() throws Exception;
         
         /**
         * create a result object from the cache (usually fast).
@@ -55,9 +59,9 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
         * similar so that the cache entry is not modified by users of the returned object.
         *
         * @param cache cached result of computeCacheEntry()
-        * @return result object
+        * @return resulting object, typically a copy of cache
         */
-       abstract public ResultType getCachedResult(CacheType cache);
+       abstract public ResultType getResultFromCacheEntry(CacheType cache);
     }
     /**
      * start a new computation it is not currently running
@@ -75,7 +79,13 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
                         // overwriting reference variables is atomic, so no need for synchronisation here
                         // this variable is only written by this thread, which has at most one running instance
                         // it is read concurrently. If someone reads the old cache (which should not happen), nothing bad will occur.
-                        cache = computation.computeCacheEntry();
+                        try {
+                            cache = computation.computeCacheEntry();
+                            cachedException = null;
+                        } catch (Exception e) {
+                            cachedException = e;
+                            cache = null;
+                        }
                     }
                 });
                 thread.start();
@@ -108,8 +118,9 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
      * start a new computation, if it is not already running, wait for the result and return it.
      * This method is blocking.
      * @return cached result that is up-to-date (computation has just finished)
+     * @throws Exception if any exceptions happened during computation
      */
-    public ResultType getFreshResultBlocking() {
+    public ResultType getFreshResultBlocking() throws Exception {
         try {
             // wait until fetching is finished
             startOrGetRunningThread().join();
@@ -123,12 +134,17 @@ public class CachingAsynchronousHandler<CacheType, ResultType> {
     
     /**
      * return cached result immediately. No new computation will be started.
-     * @return cached result that may be extremely outdated or even null, 
+     * @return cached result that may be extremely outdated or even null
+     * @throws Exception if any exceptions happened during computation
      */
-    public ResultType getCachedResult() {
+    public ResultType getCachedResult() throws Exception {
         if (cache == null) {
-            return null;
+            if (cachedException == null) {
+                return null;
+            } else {
+                throw cachedException;
+            }
         }
-        return computation.getCachedResult(cache);
+        return computation.getResultFromCacheEntry(cache);
     }
 }
