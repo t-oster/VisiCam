@@ -3,26 +3,23 @@
 # This file is a computer- and human-readable description on how to install VisiCam on Ubuntu.
 # It is automatically tested to make sure nothing breaks.
 
-FROM ubuntu:17.04
+FROM ubuntu:18.04
 RUN apt-get update
 
 # VisiCam dependencies:
-RUN apt-get -y -q --no-install-recommends install openjdk-8-jdk ant libopencv2.4
+RUN apt-get -y -q --no-install-recommends install openjdk-8-jdk ant libopencv2.4 curl unzip
 
 
-# not sure for ubuntu 17.10, probably also:
-#RUN apt-get -y -q --no-install-recommends install  libopencv-core2.4v5 libopencv-caliv3d2.4v5
-
-# only for testing:
-RUN apt-get -y -q --no-install-recommends install curl unzip
-
-
-# Only for testing: create extra user for VisiCam
-RUN adduser --disabled-password visicam
+# If you like, create an extra user for VisiCam, and continue as that user
+# (optional)
+RUN adduser --gecos "" --disabled-password visicam
 ADD . /home/visicam
 RUN chown -R visicam /home/visicam
 WORKDIR /home/visicam
 USER visicam
+
+
+# clone/download the VisiCut git repository and change to that folder (it contains "Dockerfile" and other files)
 
 
 # Download JavaCV (if it wasn't downloaded yet)
