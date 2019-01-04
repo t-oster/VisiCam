@@ -1,7 +1,9 @@
 VisiCam
 =======
 
-A Java application, that turns a webcam into a VisiCut compatible network camera with marker detection and perspective correction. Uses OpenCV through JavaCV
+A Java application, that turns a webcam into a [VisiCut](https://visicut.org/) compatible network camera with marker detection and perspective correction. Uses OpenCV through JavaCV
+
+**For detailed information, please have a look at the [VisiCam Wiki](https://github.com/t-oster/VisiCam/wiki).**
 
 Compile and Run
 ===============
@@ -36,11 +38,13 @@ Running on Ubuntu
 
 Install the required dependencies with: `sudo apt-get install openjdk-8-jdk ant libopencv2.4`
 
-Read the Dockerfile for a more up-to-date list of all commands.
+You can also have a look at the [Dockerfile](https://github.com/t-oster/VisiCam/blob/master/Dockerfile) for a more up-to-date list of all commands.
 
 Usage
 =====
-1. Place [4 Markers](https://github.com/t-oster/VisiCam/blob/master/visicam-marker.svg) (Circles within circles) at the corners of you laser-bed.
+The following is a short summary of how to use VisiCut. For more detailed information, have a look at the [VisiCam Wiki](https://github.com/t-oster/VisiCam/wiki).
+
+1. Place [4 Markers](https://github.com/t-oster/VisiCam/blob/master/visicam-marker.svg) (Circles within circles) near the corners of you laser-bed.  For a first test, almost any configuration is okay, for example [like this](https://raw.githubusercontent.com/t-oster/VisiCam/master/test/dummy1.jpg). Detailed information on how to achieve a professional set-up can be found in the [VisiCam Wiki](https://github.com/t-oster/VisiCam/wiki).
 2. Place a webcam over the laser-cutter, so that it's image contains all the markers.
 3. Connect the webcam to a PC running VisiCam.
 4. Go to you webbrowser and enter the VisiCam URL (is shown in the window after starting VisiCam).
