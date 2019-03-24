@@ -51,6 +51,7 @@ public class VisiCamServer extends NanoHTTPD
   private long lastRefreshTime = 0;
   private long lastRequestTime = System.nanoTime();
   private boolean lockInsecureSettings = false;
+  private float zoomOutputPercent = 100;
   
   
   private Thread refreshHomographyThread;
@@ -172,6 +173,7 @@ public class VisiCamServer extends NanoHTTPD
     settings.put("captureCommand", captureCommand);
     settings.put("captureResult", captureResult);
     settings.put("lockInsecureSettings", lockInsecureSettings);
+    settings.put("zoomOutputPercent", zoomOutputPercent);
 
     // visicamRPiGPU integration start
     settings.put("visicamRPiGPUInactivitySeconds", visicamRPiGPUInactivitySeconds);
@@ -199,6 +201,7 @@ public class VisiCamServer extends NanoHTTPD
     outputHeight = Integer.parseInt(parms.getProperty("outputHeight"));
     refreshSeconds = Integer.parseInt(parms.getProperty("refreshSeconds"));
     lockInsecureSettings = Boolean.parseBoolean(parms.getProperty("lockInsecureSettings"));
+    zoomOutputPercent = Float.parseFloat(parms.getProperty("zoomOutputPercent", "100"));
     captureCommand = parms.getProperty("captureCommand");
     captureResult = parms.getProperty("captureResult");
 
@@ -226,6 +229,10 @@ public class VisiCamServer extends NanoHTTPD
     if (refreshSeconds < 10)
     {
         refreshSeconds = 10;
+    }
+    
+    if (zoomOutputPercent < 1) {
+        zoomOutputPercent = 1;
     }
 
     // visicamRPiGPU integration start
@@ -727,7 +734,7 @@ public class VisiCamServer extends NanoHTTPD
 
                             // Update homography matrix with new marker positions
                             // VisiCam.log("Updating homography matrix...");
-                            cc.updateHomographyMatrix(img, currentMarkerPositions, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
+                            cc.updateHomographyMatrix(img, currentMarkerPositions, zoomOutputPercent, outputWidth, outputHeight, visicamRPiGPUEnabled, visicamRPiGPUMatrixPath);
 
                             // Log message and set timer
                             VisiCam.log("Refreshed successfully...");

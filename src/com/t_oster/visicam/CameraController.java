@@ -162,9 +162,12 @@ public class CameraController
 	return result;
   }
   
-  public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi)
+  public RelativePoint findMarker(BufferedImage input, RelativeRectangle roi) throws Exception
   {
     Rectangle abs = roi.toAbsoluteRectangle(input.getWidth(), input.getHeight());
+    if (abs.width == 0 || abs.height == 0) {
+        throw new Exception("Marker search field is empty. Please select an area for each marker.");
+    }
     IplImage in = IplImage.createFrom(input.getSubimage(abs.x, abs.y, abs.width, abs.height));
     IplImage gray = IplImage.create(in.width(), in.height(), in.depth(), 1);
     cvCvtColor(in, gray, CV_BGR2GRAY);
@@ -193,7 +196,7 @@ public class CameraController
   }
   
   // find all markers in searchfields, returns an array with RelativePoint entries (or null entry if marker not found)
-  public RelativePoint[] findMarkers(BufferedImage img, RelativeRectangle[] markerSearchfields)
+  public RelativePoint[] findMarkers(BufferedImage img, RelativeRectangle[] markerSearchfields) throws Exception
   {
       RelativePoint[] currentMarkerPositions = new RelativePoint[markerSearchfields.length];
       for (int i = 0; i < markerSearchfields.length; i++)
@@ -221,7 +224,7 @@ public class CameraController
         }
   }
 
-  public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, double ouputWidth, double outputHeight, boolean visicamRPiGPUEnabled, String visicamRPiGPUMatrixPath) throws FileNotFoundException, IOException
+  public void updateHomographyMatrix(BufferedImage img, RelativePoint[] markerPositions, float zoomOutputPercent, double ouputWidth, double outputHeight, boolean visicamRPiGPUEnabled, String visicamRPiGPUMatrixPath) throws FileNotFoundException, IOException
   {
     CvMat src = CvMat.create(markerPositions.length, 1, CV_32FC(2));
 
@@ -241,9 +244,32 @@ public class CameraController
     dst.put(2, 0, 1, img.getHeight());
     dst.put(3, 0, 0, img.getWidth());
     dst.put(3, 0, 1, img.getHeight());
+    
+    CvMat zoomMat = CvMat.create(3, 3);
+    // [x'; y'; 1] = zoomMat * [x; y; 1]
+    // x' = (x-width/2)*zoom + width/2
+    // same for y'.
+    // for zoom=1 (100%), the result is the identity matrix.
+    zoomMat.put(0, 0, zoomOutputPercent/100.f);
+    zoomMat.put(0, 1, 0);
+    zoomMat.put(0, 2, img.getWidth() / 2 * (1 - zoomOutputPercent/100.f));
+    // same for y
+    zoomMat.put(1, 0, 0);
+    zoomMat.put(1, 1, zoomOutputPercent/100.f);
+    zoomMat.put(1, 2, img.getHeight() / 2 * (1 - zoomOutputPercent/100.f));
+    // keep last coordinate (always 1 for affine transformation)
+    zoomMat.put(2, 0, 0);
+    zoomMat.put(2, 1, 0);
+    zoomMat.put(2, 2, 1);
 
-    CvMat localHomographyMatrix = CvMat.create(3, 3);
-    cvFindHomography(src, dst, localHomographyMatrix, CV_RANSAC, 1, null);
+    CvMat localHomographyMatrixWithoutZoom = CvMat.create(3, 3);
+    cvFindHomography(src, dst, localHomographyMatrixWithoutZoom, CV_RANSAC, 1, null);
+    CvMat localHomographyMatrix = CvMat.create(3,3);
+    // System.out.println(zoomMat.toString() + "\n");
+    // System.out.println(localHomographyMatrixWithoutZoom.toString() + "\n");
+    // matrix multiply: localHomographyMatrix = zoomMat * localHomographyMatrixWithoutZoom * 1 + 0
+    cvGEMM(zoomMat, localHomographyMatrixWithoutZoom, 1, zoomMat, 0, localHomographyMatrix);
+    // System.out.println(localHomographyMatrix.toString() + "\n"); 
 
     // Write matrix values to file for visicamRPiGPU if needed
     if (visicamRPiGPUEnabled)
