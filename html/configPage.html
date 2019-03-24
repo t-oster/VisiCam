@@ -14,20 +14,22 @@
     <img style="max-width: 800px;" id="capture"/>
     <fieldset id="settings">
       <legend>VisiCam Settings:</legend>
+      <p><a href="https://github.com/t-oster/VisiCam/wiki/Configuration">Help</a></p>
       <p><label for="cameraIndex">CameraIndex:</label><input id="cameraIndex" name="cameraIndex" type="number" value="0"/></p>
       <p><label for="inputWidth">InputWidth:</label><input id="inputWidth" name="inputWidth" type="number"  value="640"/></p>
       <p><label for="inputHeight">InputHeight:</label><input id="inputHeight" name="inputHeight" type="number" value="480"/></p>
       <p><label for="outputWidth">OutputWidth:</label><input id="outputWidth" name="outputWidth" type="number" value="640"/></p>
       <p><label for="outputHeight">OutputHeight:</label><input id="outputHeight" name="outputHeight" type="number" value="480"/></p>
+      <p><label for="outputWidth">Zoom Output (%):</label><input id="zoomOutputPercent" name="zoomOutputPercent" type="number" value="100" min="1" max="100000"/></p>
       <p><label for="refreshSeconds">RefreshSeconds:</label><input id="refreshSeconds" name="refreshSeconds" type="number" value="1"/></p>
-      <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
+      <p><label for="lockInsecureSettings">lockInsecureSettings:</label><input id="lockInsecureSettings" name="lockInsecureSettings" type="checkbox"/><br>(set customCapture, captureCommand and captureResult read-only.<br>If this is disabled, anyone can execute arbitrary commands as the user running VisiCam!<br> once enabled, this can only be disabled from config file)</p>
       <hr>
       <p><label for="customCapture">CustomCapture:</label><input id="customCapture" name="customCapture" type="checkbox"/></p>
       <p class="custom"><label for="captureCommand">CaptureCommand:</label><input id="captureCommand" name="captureCommand" type="text"/></p>
       <p class="custom"><label for="captureResult">CaptureResult:</label><input id="captureResult" name="captureResult" type="text"/></p>
       <hr>
       <!-- visicamRPiGPU integration start -->
-      <p><label for="visicamRPiGPUEnabled">visicamRPiGPU:</label><input id="visicamRPiGPUEnabled" name="visicamRPiGPUEnabled" type="checkbox"/></p>
+      <p><label for="visicamRPiGPUEnabled">visicamRPiGPU (do not use, currently broken):</label><input id="visicamRPiGPUEnabled" name="visicamRPiGPUEnabled" type="checkbox"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUInactivitySeconds">InactivitySeconds:</label><input id="visicamRPiGPUInactivitySeconds" name="visicamRPiGPUInactivitySeconds" type="number"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUBinaryPath">BinaryPath:</label><input id="visicamRPiGPUBinaryPath" name="visicamRPiGPUBinaryPath" type="text"/></p>
       <p class="visicamRPiGPU"><label for="visicamRPiGPUMatrixPath">MatrixPath:</label><input id="visicamRPiGPUMatrixPath" name="visicamRPiGPUMatrixPath" type="text"/></p>
@@ -35,15 +37,19 @@
       <p class="visicamRPiGPU"><label for="visicamRPiGPUImageProcessedPath">FinalImagePath:</label><input id="visicamRPiGPUImageProcessedPath" name="visicamRPiGPUImageProcessedPath" type="text"/><br><br>For visicamRPiGPU ensure that: InputWidth == OutputWidth, InputHeight == OutputHeight,<br>enough GPU split memory in raspi-config (1280x720 => 128 MB),<br>width in [640, 1920], height in [480, 1080],<br>width multiple of 32, height multiple of 16,<br>InactivitySeconds > RefreshSeconds</p>
       <hr>
       <!-- visicamRPiGPU integration end -->
-      <p><label for="marker">Marker:</label>
+      <p><label for="marker">Edit Marker:</label>
       <p><select id="marker">
         <option value="0" selected="selected">top-left</option>
         <option value="1">top-right</option>
         <option value="2">bottom-left</option>
         <option value="3">bottom-right</option>
-      </select></p>
-      <button id="save">Save</button>
+        </select><br>
+        Click and drag in the left image to select the marker area.
+      </p>
+      <button id="save">Save</button> 
+      <a href="index.html"> Back to main page </a>
     </fieldset>
+    <p style="clear:both"></p>
     <script type="text/javascript">
     var activeMarker = 0;
     var settings = {};
@@ -68,6 +74,7 @@
       $("#outputWidth").val(settings.outputWidth);
       $("#outputHeight").val(settings.outputHeight);
       $("#refreshSeconds").val(settings.refreshSeconds);
+      $("#zoomOutputPercent").val(settings.zoomOutputPercent);
       $("#lockInsecureSettings").attr("checked",settings.lockInsecureSettings);
 
       // visicamRPiGPU integration start
@@ -200,6 +207,7 @@
       settings.outputWidth = $("#outputWidth").val();
       settings.outputHeight = $("#outputHeight").val();
       settings.refreshSeconds = $("#refreshSeconds").val();
+      settings.zoomOutputPercent = $("#zoomOutputPercent").val();
       settings.captureCommand = $("#customCapture").is(":checked") ? $("#captureCommand").val() : "";
       settings.captureResult = $("#customCapture").is(":checked") ? $("#captureResult").val() : "";
       settings.lockInsecureSettings = $("#lockInsecureSettings").is(":checked");
