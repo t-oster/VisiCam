@@ -3,11 +3,11 @@
 # This file is a computer- and human-readable description on how to install VisiCam on Ubuntu.
 # It is automatically tested to make sure nothing breaks.
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 RUN apt-get update
 
 # VisiCam dependencies:
-RUN apt-get -y -q --no-install-recommends install openjdk-8-jdk ant libopencv2.4 curl unzip
+RUN apt-get -y --no-install-recommends install openjdk-11-jdk ant curl unzip libgtk2.0-0 libv4l-0
 
 
 # If you like, create an extra user for VisiCam, and continue as that user
@@ -34,5 +34,5 @@ RUN test -f visicam.conf || cp test/visicam.conf .
 # VisiCam will, by default, listen on TCP 8080 and UDP 8888
 EXPOSE 8080
 
-# launch via:
-CMD ant run
+# launch via "ant run"
+CMD ["ant", "run"]
