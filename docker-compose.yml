@@ -1,0 +1,12 @@
+# Start this via "docker-compose up --build"
+version: '2'
+services:
+  visicam:
+    build: .
+    ports:
+     - "8080:8080"
+     - "8888:8888/udp"
+# TODO add volume for the configuration so that changes via the web interface aren't reset after a restart
+#    volumes:
+#     - ./test/visicam.conf:/home/visicam/visicam.conf
+# TODO add camera devices and proper permissions
